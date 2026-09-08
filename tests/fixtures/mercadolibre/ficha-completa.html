@@ -1,0 +1,46 @@
+<!--
+  Fixture representativo de una ficha de MercadoLibre Peru, construido sobre las
+  clases reales de la plataforma (ui-pdp-*).
+
+  NO se pudo capturar una pagina real desde este entorno: MercadoLibre responde
+  con su muro anti-bot (suspicious-traffic-frontend) a cualquier peticion que no
+  venga de un navegador con sesion. Eso es, precisamente, el argumento a favor de
+  la extension: el DOM que el comprador ya tiene es inalcanzable desde el servidor.
+
+  Para reemplazarlo por una captura autentica, ver tests/fixtures/README.md.
+-->
+<!DOCTYPE html>
+<html lang="es-PE">
+<head><title>Hidrolavadora Inalambrica 20V | MercadoLibre</title></head>
+<body>
+  <main class="ui-pdp">
+    <h1 class="ui-pdp-title">Hidrolavadora Inalambrica 20v Tpwli20362 Total</h1>
+    <span class="ui-pdp-subtitle">Nuevo&nbsp;|&nbsp;+500 vendidos</span>
+
+    <div class="ui-pdp-header__info">
+      <span class="ui-pdp-review__rating">4.8</span>
+      <span class="ui-pdp-review__amount">(1250)</span>
+    </div>
+
+    <div id="buybox-form">
+      <a href="https://www.mercadolibre.com.pe/compra-protegida" class="ui-pdp-action">
+        Compra Protegida
+      </a>
+    </div>
+
+    <div class="ui-pdp-warranty" data-testid="warranty">Garantia de fabrica: 12 meses</div>
+
+    <table class="ui-pdp-specs__table">
+      <tbody>
+        <tr><th>Marca</th><td>Total</td></tr>
+        <tr><th>Garantia de fabrica</th><td>12 meses</td></tr>
+      </tbody>
+    </table>
+
+    <section id="reviews-capability">
+      <h2>Opiniones del producto</h2>
+      <article class="ui-review-capability__comment">Excelente presion, la recomiendo.</article>
+    </section>
+  </main>
+</body>
+</html>
