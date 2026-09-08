@@ -78,6 +78,11 @@ export default defineContentScript({
       anchor: ancla ?? 'body',
       append: 'first',
       onMount: (contenedor) => {
+        // Un custom element no tiene display propio: sin esto el host queda
+        // inline y el panel no ocupa lugar en el buybox.
+        contenedor.style.display = 'block';
+        contenedor.style.width = '100%';
+
         if (ancla === null) {
           // Sin anclaje reconocible, el badge no desaparece: se fija en una
           // esquina. Una remaquetacion degrada la ubicacion, no la funcion.

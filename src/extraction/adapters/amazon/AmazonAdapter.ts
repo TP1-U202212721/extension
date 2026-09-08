@@ -19,8 +19,12 @@ const PENDIENTE = 'Adaptador de Amazon aun no implementado.';
 export class AmazonAdapter implements MarketplaceAdapter {
   readonly plataforma = 'Amazon';
 
-  reconoce(url: URL): boolean {
+  esPlataforma(url: URL): boolean {
     return url.hostname.includes('amazon.');
+  }
+
+  reconoce(url: URL): boolean {
+    return this.esPlataforma(url);
   }
 
   identificar(url: URL): Publicacion | null {

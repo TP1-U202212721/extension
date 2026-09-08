@@ -19,8 +19,12 @@ const PENDIENTE = 'Adaptador de AliExpress aun no implementado.';
 export class AliExpressAdapter implements MarketplaceAdapter {
   readonly plataforma = 'AliExpress';
 
-  reconoce(url: URL): boolean {
+  esPlataforma(url: URL): boolean {
     return url.hostname.includes('aliexpress.');
+  }
+
+  reconoce(url: URL): boolean {
+    return this.esPlataforma(url);
   }
 
   identificar(url: URL): Publicacion | null {

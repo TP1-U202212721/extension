@@ -9,12 +9,11 @@ import type {
   Publicacion,
   TarjetaListado,
 } from '../../MarketplaceAdapter.js';
+import { leerProducto } from './jsonLd.js';
 import {
   ANCLA_BADGE,
   TARJETAS,
-  TARJETA_ENLACE,
   primero,
-  primero2,
   SELECTORS,
   textoDe,
 } from './selectors.js';
@@ -33,10 +32,14 @@ const ID_PUBLICACION = /\b(ML[A-Z]|MPE|MCO|MLC)U?-?(\d{6,})\b/;
  */
 const PUNTUACION = /(\d+(?:[.,]\d+)?)\s*(?:de\s*5)?/;
 
-/** "+500 vendidos", "1.2mil vendidos", "12 vendidos". */
-const VENTAS = /([\d.,]+)\s*(mil|k)?\s*vendid/i;
+/** "+500 vendidos", "1.2mil vendidos", "12 vendidos", "+5 ventas". */
+const VENTAS = /([\d.,]+)\s*(mil|k)?\s*(?:vendid|venta)/i;
 
-/** "Garantia de fabrica: 12 meses", "Garantia del vendedor: 30 dias". */
+/**
+ * "Garantia de fabrica: 12 meses", "Garantia del vendedor: 1 años".
+ * En la ficha real la garantia aparece al final de la descripcion, no en un
+ * nodo propio.
+ */
 const GARANTIA_TEXTO = /garant[ií]a\s+(?:de\s+f[aá]brica|del\s+vendedor)/i;
 
 /** "4.8" o "4,8" -> 4.8. Para valores con parte decimal. */
@@ -54,8 +57,12 @@ const aEntero = (s: string): number | null => {
 export class MercadoLibreAdapter implements MarketplaceAdapter {
   readonly plataforma = 'Mercado Libre';
 
+  esPlataforma(url: URL): boolean {
+    return url.hostname.includes('mercadolibre.');
+  }
+
   reconoce(url: URL): boolean {
-    return url.hostname.includes('mercadolibre.') && ID_PUBLICACION.test(url.href);
+    return this.esPlataforma(url) && ID_PUBLICACION.test(url.href);
   }
 
   identificar(url: URL): Publicacion | null {
@@ -69,25 +76,37 @@ export class MercadoLibreAdapter implements MarketplaceAdapter {
     return primero(doc, ANCLA_BADGE);
   }
 
+  /**
+   * Tarjetas de listado y carrusel.
+   *
+   * No se buscan por nombre de clase sino por sus enlaces: el patron de URL de
+   * una ficha ("/MPE123456789", "/up/MPEU3173976853") es parte del esquema
+   * publico de la plataforma y sobrevive a las remaquetaciones, mientras que las
+   * clases CSS cambian sin aviso. De cada enlace se sube al contenedor que
+   * parece la tarjeta.
+   */
   tarjetas(doc: Document): readonly TarjetaListado[] {
-    const vistas = new Set<Element>();
-    const salida: TarjetaListado[] = [];
+    const porContenedor = new Map<Element, TarjetaListado>();
 
-    for (const sel of TARJETAS) {
-      for (const el of doc.querySelectorAll(sel)) {
-        if (vistas.has(el)) continue;
-        vistas.add(el);
+    for (const a of doc.querySelectorAll('a[href]')) {
+      const href = a.getAttribute('href') ?? '';
+      if (!ID_PUBLICACION.test(href)) continue;
 
-        const enlace = primero2(el, TARJETA_ENLACE);
-        const href = enlace?.getAttribute('href') ?? '';
-        // Sin un enlace a una ficha reconocible, la tarjeta se ignora: el badge
-        // solo tiene sentido si hay adonde ir.
-        if (href === '' || !ID_PUBLICACION.test(href)) continue;
-
-        salida.push({ elemento: el, href });
-      }
+      const contenedor = this.#contenedorDeTarjeta(a);
+      if (contenedor === null || porContenedor.has(contenedor)) continue;
+      porContenedor.set(contenedor, { elemento: contenedor, href });
     }
-    return salida;
+    return [...porContenedor.values()];
+  }
+
+  /** Sube desde el enlace hasta el nodo que hace de tarjeta. */
+  #contenedorDeTarjeta(enlace: Element): Element | null {
+    let n: Element | null = enlace;
+    for (let i = 0; i < 6 && n !== null; i += 1) {
+      if (n.matches(TARJETAS.join(','))) return n;
+      n = n.parentElement;
+    }
+    return null;
   }
 
   /**
@@ -120,6 +139,15 @@ export class MercadoLibreAdapter implements MarketplaceAdapter {
   }
 
   #puntuacion(doc: Document): FeatureSet['puntuacionDelProducto'] {
+    // Los datos estructurados de la pagina son mas estables que las clases CSS.
+    const ld = leerProducto(doc);
+    if (ld?.ratingValue !== undefined && ld.ratingValue >= 0 && ld.ratingValue <= 5) {
+      return conocido(
+        ld.ratingValue,
+        `Puntuacion promedio de ${String(ld.ratingValue)} sobre 5 segun los datos de la pagina.`,
+      );
+    }
+
     const texto = textoDe(primero(doc, SELECTORS.puntuacion));
     if (texto === '') return indeterminado('No se encontro la puntuacion en la pagina.');
 
@@ -132,6 +160,12 @@ export class MercadoLibreAdapter implements MarketplaceAdapter {
   }
 
   #presenciaDeResenas(doc: Document): FeatureSet['presenciaDeResenas'] {
+    const ld = leerProducto(doc);
+    const conteo = ld?.reviewCount ?? ld?.ratingCount;
+    if (conteo !== undefined) {
+      return conocido(conteo > 0, `La pagina declara ${String(conteo)} opiniones.`);
+    }
+
     const bloque = primero(doc, SELECTORS.bloqueResenas);
     const cantidad = textoDe(primero(doc, SELECTORS.cantidadResenas));
 

@@ -25,10 +25,24 @@ export const SELECTORS = {
     '.ui-pdp-buybox__quantity ~ * a[href*="garantia"]',
     '.ui-pdp-warranty',
   ],
-  /** Texto de la ficha donde suele aparecer "Garantia de fabrica: 12 meses". */
-  garantiaTexto: ['.ui-pdp-specs__table', '.andes-table', '.ui-pdp-list--specs'],
+  /**
+   * Texto donde declara la garantia. En la ficha real aparece al final de la
+   * descripcion ("Garantia del vendedor: 1 años") y en la tabla de
+   * especificaciones ("Duracion del producto: 12 meses").
+   */
+  garantiaTexto: [
+    '.ui-pdp-description__content',
+    '.ui-vpp-striped-specs',
+    '.ui-pdp-specs__table',
+    '.andes-table',
+  ],
 
-  /** Puntuacion promedio, 0.0 - 5.0. */
+  /**
+   * Puntuacion promedio, 0.0 - 5.0. Solo se usa si el JSON-LD no la trae: en la
+   * ficha real de MercadoLibre estos nodos ni siquiera existen cuando la
+   * seccion de opiniones esta oculta, y el dato si esta en los datos
+   * estructurados.
+   */
   puntuacion: [
     '[data-testid="rating-value"]',
     '.ui-pdp-review__rating',
@@ -45,8 +59,18 @@ export const SELECTORS = {
   /** Bloque de opiniones, para decidir presencia de resenas. */
   bloqueResenas: ['#reviews-capability', '.ui-pdp-reviews', '[data-testid="reviews"]'],
 
-  /** Subtitulo con las ventas: "Nuevo | +500 vendidos". */
-  ventas: ['.ui-pdp-subtitle', '[data-testid="product-subtitle"]', '.ui-pdp-header__subtitle'],
+  /**
+   * Ventas del vendedor: "+5 ventas".
+   *
+   * Van en el resumen del vendedor, NO en `.ui-pdp-subtitle`: ahi solo dice
+   * "Nuevo". El selector anterior estaba mal y por eso el volumen de ventas
+   * caia siempre a indeterminado.
+   */
+  ventas: [
+    '.ui-pdp-seller-summary__header__subtitle',
+    '.ui-seller-data-status__info-title',
+    '.ui-pdp-subtitle',
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 /** Primer elemento que matchee en la cascada, o null. */
@@ -85,21 +109,4 @@ export const TARJETAS: readonly string[] = [
   'li.ui-search-layout__item',
 ];
 
-/** Enlace a la ficha dentro de una tarjeta. */
-export const TARJETA_ENLACE: readonly string[] = [
-  'a.poly-component__title',
-  'a.ui-recommendations-card__link',
-  'a.ui-search-link',
-  'a[href*="/MPE"]',
-  'a[href*="/ML"]',
-  'a[href]',
-];
 
-/** Como `primero`, pero buscando dentro de un elemento y no del documento. */
-export const primero2 = (raiz: Element, cascada: readonly string[]): Element | null => {
-  for (const sel of cascada) {
-    const el = raiz.querySelector(sel);
-    if (el !== null) return el;
-  }
-  return null;
-};

@@ -35,7 +35,13 @@ export interface TarjetaListado {
  */
 export interface MarketplaceAdapter {
   readonly plataforma: string;
-  /** Decide si esta URL corresponde a una ficha de producto de esta plataforma. */
+  /**
+   * Decide si la URL pertenece a esta plataforma, sea ficha, busqueda o home.
+   * Es lo que habilita insertar badges en tarjetas de listado, donde no hay
+   * ficha que identificar.
+   */
+  esPlataforma(url: URL): boolean;
+  /** Decide si esta URL corresponde a una ficha de producto concreta. */
   reconoce(url: URL): boolean;
   identificar(url: URL): Publicacion | null;
   /** Extrae solo las caracteristicas de cliente; las de backend quedan indeterminadas. */
