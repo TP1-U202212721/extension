@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { obtenerSesion, type Sesion } from '../../auth/sesion.js';
+import { PanelSesion } from '../../ui/PanelSesion.js';
 import { conocido, indeterminado, FEATURE_IDS, type FeatureSet } from '../../domain/features.js';
 import { MockRiskEngineClient, type Escenario } from '../../transport/MockRiskEngineClient.js';
 import { VerdictPanel } from '../../ui/VerdictPanel.js';
@@ -34,7 +36,21 @@ const sinEvidencia = (): FeatureSet =>
  * validarla con usuarios sin esperar al backend.
  */
 export function App() {
+  const [sesion, setSesion] = useState<Sesion | null>(null);
+  const [cargandoSesion, setCargandoSesion] = useState(true);
   const [escenario, setEscenario] = useState<Escenario>('bajo');
+
+  useEffect(() => {
+    let vigente = true;
+    void obtenerSesion().then((s) => {
+      if (!vigente) return;
+      setSesion(s);
+      setCargandoSesion(false);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
   const [evaluacion, setEvaluacion] = useState<{
     verdict: Verdict;
     features: FeatureSet;
@@ -56,6 +72,23 @@ export function App() {
 
   return (
     <div className="w-[420px] p-3">
+      <header className="mb-3 flex items-baseline gap-2">
+        <h1 className="text-lg font-extrabold text-blue-700">ScamShield</h1>
+        <span className="text-xs text-slate-500">Estima el riesgo antes de pagar</span>
+      </header>
+
+      {!cargandoSesion && (
+        <div className="mb-3">
+          <PanelSesion sesion={sesion} onCambio={setSesion} />
+        </div>
+      )}
+
+      {/* Sin sesion no hay reporte, asi que tampoco se muestra su maqueta. */}
+      {sesion !== null && (
+        <>
+      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+        Maqueta de los desenlaces
+      </p>
       <div className="mb-3 flex gap-1 rounded-xl bg-slate-100 p-1">
         {ESCENARIOS.map((e) => (
           <button
@@ -86,6 +119,8 @@ export function App() {
       <p className="mt-2 text-center text-[10px] text-slate-400">
         Maqueta con motor simulado. Los datos no provienen de un analisis real.
       </p>
+        </>
+      )}
     </div>
   );
 }
