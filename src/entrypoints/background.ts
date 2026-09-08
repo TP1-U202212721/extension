@@ -3,13 +3,25 @@ import { browser } from 'wxt/browser';
 import { riskEngine } from '../config.js';
 import { esEvaluarMensaje, type Respuesta } from '../messaging.js';
 import { SesionRequeridaError } from '../transport/HttpRiskEngineClient.js';
-import { obtenerToken } from '../auth/sesion.js';
+import { COOKIE, HOST_APP, obtenerToken, sincronizarConCookie } from '../auth/sesion.js';
 import {
   consultarVeracidadDeDominio,
   type DetalleDominio,
 } from '../transport/DomainVeracityClient.js';
 
 export default defineBackground(() => {
+  // La cookie del cliente web es la fuente de verdad de la sesion. El listener
+  // va en el nivel superior a proposito: en MV3 el service worker se apaga, y
+  // solo los eventos registrados aqui vuelven a despertarlo.
+  browser.cookies.onChanged.addListener(({ cookie }) => {
+    if (cookie.name !== COOKIE) return;
+    if (cookie.domain.replace(/^\./, '') !== HOST_APP) return;
+    void sincronizarConCookie();
+  });
+
+  // Al arrancar puede haber una sesion abierta de antes de instalar la extension.
+  void sincronizarConCookie();
+
   browser.runtime.onMessage.addListener(
     (mensaje: unknown, _sender, sendResponse: (r: Respuesta) => void) => {
       if (!esEvaluarMensaje(mensaje)) return false;

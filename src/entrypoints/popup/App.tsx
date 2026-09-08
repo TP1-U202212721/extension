@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { obtenerSesion, type Sesion } from '../../auth/sesion.js';
 import { PanelSesion } from '../../ui/PanelSesion.js';
-import { googleDisponible, uriDeRedireccion } from '../../auth/google.js';
 import { conocido, indeterminado, FEATURE_IDS, type FeatureSet } from '../../domain/features.js';
 import { MockRiskEngineClient, type Escenario } from '../../transport/MockRiskEngineClient.js';
 import { VerdictPanel } from '../../ui/VerdictPanel.js';
@@ -122,49 +121,7 @@ export function App() {
       </p>
         </>
       )}
-
-      <UriDeRedireccion />
     </div>
   );
 }
 
-/**
- * La URI de redireccion de OAuth cambia por navegador y por instalacion: en
- * Chrome se deriva de la ruta desde la que se cargo la extension, y en Firefox
- * de un UUID aleatorio por perfil. Calcularla de antemano es adivinar, asi que
- * la extension muestra la suya para poder darla de alta en Google Cloud Console.
- */
-function UriDeRedireccion() {
-  const [copiado, setCopiado] = useState(false);
-  if (!googleDisponible()) return null;
-
-  const uri = uriDeRedireccion();
-  if (uri === '') return null;
-
-  return (
-    <details className="mt-3 border-t border-slate-100 pt-2">
-      <summary className="cursor-pointer list-none text-[10px] font-semibold text-slate-400">
-        URI de redireccion OAuth de esta instalacion
-      </summary>
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(uri).then(() => {
-            setCopiado(true);
-            setTimeout(() => {
-              setCopiado(false);
-            }, 1500);
-          });
-        }}
-        title="Copiar"
-        className="mt-1 w-full break-all rounded-lg bg-slate-100 px-2 py-1.5 text-left font-mono text-[10px] text-slate-600 hover:bg-slate-200"
-      >
-        {copiado ? 'Copiado' : uri}
-      </button>
-      <p className="mt-1 text-[10px] leading-snug text-slate-400">
-        Registrala como URI de redireccion autorizada en el cliente OAuth web del
-        proyecto. Cambia si mueves la carpeta o cambias de navegador.
-      </p>
-    </details>
-  );
-}

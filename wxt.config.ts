@@ -43,9 +43,12 @@ export default defineConfig({
     // `cookies` porque la extension inicia sesion por su cuenta contra la API,
     // ni host_permissions porque el backend responde con CORS abierto. Y no hay
     // ni un permiso sobre los marketplaces: no se les pide nada.
-    // `identity` habilita launchWebAuthFlow para el inicio de sesion con
-    // Google; sigue sin haber ni un permiso sobre los marketplaces.
-    permissions: ['storage', 'identity'],
+    // `cookies` + host_permissions SOLO sobre el dominio propio de ScamShield:
+    // ahi el cliente web deja el token tras iniciar sesion, y leerlo evita
+    // duplicar el login dentro de la extension. Sigue sin haber ni un permiso
+    // sobre los marketplaces: a ellos no se les pide absolutamente nada.
+    permissions: ['storage', 'cookies'],
+    host_permissions: ['https://scamshield.ryzeon.dev/*'],
 
     ...(browser === 'firefox'
       ? {
