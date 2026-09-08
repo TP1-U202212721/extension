@@ -1,0 +1,80 @@
+# ScamShield · extension de navegador
+
+Estima el riesgo de una publicacion de venta **leyendo la pagina que el comprador ya abrio**,
+y se lo muestra antes de que pague.
+
+## La restriccion que define el diseno
+
+**Cero scraping.** La extension no navega, no recorre paginas, y no emite hacia la plataforma
+del vendedor ninguna peticion que el usuario no hubiera cursado igual. Solo interpreta el
+documento que el navegador ya recibio.
+
+No es un detalle de implementacion: es lo que separa esta propuesta del estado del arte. Si
+el diseno lo viola, invalida la tesis. La regla vive escrita en el contrato de
+`MarketplaceAdapter` y se verifica en los tests.
+
+De paso, es lo que la hace viable: un servidor pidiendo la misma ficha recibe el muro
+anti-bot de la plataforma (comprobado: MercadoLibre responde `suspicious-traffic-frontend`),
+mientras que el navegador del comprador ya tiene el DOM real delante.
+
+## Estado
+
+| Capa | Estado |
+|---|---|
+| Dominio: 8 caracteristicas, 3 estados, 4 desenlaces | real |
+| Extraccion MercadoLibre (5 caracteristicas de cliente) | real |
+| Extraccion Amazon y AliExpress | andamiada: degrada a `indeterminado` |
+| Motor de riesgo | **simulado**. El endpoint no existe: ver `docs/contrato-motor-riesgo.md` |
+| UI, los cuatro desenlaces | real, alimentada por el mock |
+
+## Arranque
+
+```bash
+pnpm install
+pnpm dev              # Chrome con HMR
+pnpm dev:firefox
+pnpm test
+pnpm typecheck && pnpm lint
+```
+
+## Builds
+
+```bash
+pnpm build:chrome     # .output/chrome-mv3
+pnpm build:firefox    # .output/firefox-mv3
+pnpm build:safari     # .output/safari-mv3  (ver docs/safari.md)
+```
+
+- **Chrome**: `chrome://extensions` > modo desarrollador > cargar descomprimida.
+- **Firefox**: `about:debugging#/runtime/this-firefox` > cargar complemento temporal.
+- **Safari**: `pnpm safari:convert` y abrir el proyecto Xcode. Ver `docs/safari.md`.
+
+## Arquitectura
+
+```
+src/domain/       puro: caracteristicas, veredicto, politica. Sin DOM, sin red, sin navegador
+src/extraction/   un adaptador por marketplace, con los selectores aislados
+src/transport/    RiskEngineClient: mock (activo) y http (esqueleto)
+src/ui/           panel del veredicto, compartido entre popup y content script
+src/entrypoints/  background, content script y popup
+```
+
+El limite entre capas se hace cumplir con lint: `src/domain/**` tiene prohibido `document`,
+`window`, `fetch` y `chrome`.
+
+### Cambiar del motor simulado al real
+
+Una linea en `src/config.ts`:
+
+```ts
+export const riskEngine: RiskEngineClient = new MockRiskEngineClient();
+// export const riskEngine: RiskEngineClient = new HttpRiskEngineClient(API_BASE_URL);
+```
+
+## Documentacion
+
+- `docs/adr/0001-wxt.md` — por que WXT, y las trampas de multinavegador que neutraliza
+- `docs/adr/0002-modelo-tres-estados.md` — los tres estados y el analisis de la regla de abstencion
+- `docs/contrato-motor-riesgo.md` — el endpoint propuesto al backend
+- `docs/safari.md` — empaquetado con Xcode y limitaciones
+- `tests/fixtures/README.md` — como capturar HTML real para los tests
