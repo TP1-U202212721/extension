@@ -31,11 +31,27 @@ mientras que el navegador del comprador ya tiene el DOM real delante.
 
 ```bash
 pnpm install
-pnpm dev              # Chrome con HMR
-pnpm dev:firefox
+pnpm dev              # abre Chrome con la extension cargada y HMR
+pnpm dev:firefox      # requiere Firefox instalado
 pnpm test
 pnpm typecheck && pnpm lint
 ```
+
+### Que hace `pnpm dev`
+
+Compila, queda en watch y **abre un Chrome nuevo** con la extension ya cargada, directo en
+una ficha de MercadoLibre (configurable en `web-ext.config.ts`).
+
+Ese Chrome usa un **perfil limpio que se crea en cada arranque**, para no tocar el tuyo: no
+tiene tus marcadores, ni tus sesiones iniciadas, ni tus otras extensiones. Tu Chrome de
+siempre no se ve afectado. Al guardar un archivo, la extension se recarga sola.
+
+Para que abra el navegador hace falta `web-ext`, que ya esta en las dependencias de
+desarrollo. Sin el, `pnpm dev` compilaria y quedaria en watch, pero habria que cargar
+`.output/chrome-mv3-dev` a mano.
+
+Con `o + enter` reabre el navegador. Para que no abra ninguno, `disabled: true` en
+`web-ext.config.ts`.
 
 ## Builds
 
