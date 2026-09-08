@@ -151,3 +151,34 @@ caracteristica queda `indeterminado`, nunca favorable.
 
 `reputacionDelVendedor` y `autenticidadDeResenas`. `MockRiskEngineClient` no les inventa
 valores: las deja como llegan (indeterminadas) y la politica se abstiene.
+
+
+## Analisis del documento — endpoint real (sustituye a la extraccion de cliente)
+
+```
+POST /api/v1/DocumentAnalysis/Features   body: { "url": "https://...", "html": "<!DOCTYPE html>..." }
+```
+
+La extension manda `document.documentElement.outerHTML` **sin recortar**: el backend acota
+al subarbol relevante. Exige JWT, como el resto de la API. El razonamiento completo esta en
+[ADR 0004](adr/0004-analisis-de-documento-en-el-servidor.md).
+
+Devuelve las siete caracteristicas del `EstimateRiskRequestDto` mas `featureStates[]`, y
+esa segunda lista es la que importa: **nunca se lee un valor sin su estado**, porque el DTO
+usa tipos no nulables y un 0 puede ser una medicion o un selector que fallo.
+
+Limite de 8 MB en bytes UTF-8 (`new Blob([html]).size`, no `html.length`). Se comprueba en
+el cliente antes de subir. Timeout de 20 s; si expira, todo queda indeterminado.
+
+### Estado del backend, a dia de hoy
+
+| Caracteristica | Origen | Estado |
+|---|---|---|
+| Proteccion de pago | documento | real |
+| Puntuacion del producto | documento | real |
+| Presencia de resenas | documento | real (y **ya no invertida**, 1 = tiene) |
+| Politicas de garantia | documento | real, con regla propia para "Sin garantia" |
+| Volumen de ventas | documento | real |
+| Reputacion del vendedor | documento | real, binaria (distintivo de lider) |
+| **Veracidad de dominio** | `/DomainAnalysis/Veracity` | real |
+| Autenticidad de resenas | modelo de resenas | **no existe**: siempre diferida |

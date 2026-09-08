@@ -80,7 +80,12 @@ export class ThresholdPolicy implements DecisionPolicy {
     // 4 y 5 son "probablemente legitimo" y "legitimo". El 3 del backend es
     // "sin evidencia suficiente": es un valor conocido, pero no acredita nada.
     if (estaResuelta(f.veracidadDeDominio)) sumar(f.veracidadDeDominio.valor >= 4);
-    if (estaResuelta(f.reputacionDelVendedor)) sumar(f.reputacionDelVendedor.valor >= 2);
+    // El backend la lee del documento como binaria: 1 = distintivo de lider,
+    // 0 = sin distintivo. Con el umbral en 2 esta caracteristica JAMAS podia
+    // resultar favorable, que es un fallo silencioso del tipo que este diseno
+    // persigue. Cuando exista el historial agregado del vendedor habra que
+    // revisar el corte junto con el resto de la escala.
+    if (estaResuelta(f.reputacionDelVendedor)) sumar(f.reputacionDelVendedor.valor >= 1);
     if (estaResuelta(f.autenticidadDeResenas)) sumar(f.autenticidadDeResenas.valor <= 0.3);
     if (estaResuelta(f.puntuacionDelProducto)) sumar(f.puntuacionDelProducto.valor >= 4);
     if (estaResuelta(f.presenciaDeResenas)) sumar(f.presenciaDeResenas.valor);

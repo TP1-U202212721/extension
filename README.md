@@ -92,6 +92,7 @@ export const riskEngine: RiskEngineClient = new MockRiskEngineClient();
 - `docs/adr/0001-wxt.md` — por que WXT, y las trampas de multinavegador que neutraliza
 - `docs/adr/0002-modelo-tres-estados.md` — los tres estados y el analisis de la regla de abstencion
 - `docs/adr/0003-autenticacion-delegada-al-cliente-web.md` — por que la extension no tiene formulario de login
+- `docs/adr/0004-analisis-de-documento-en-el-servidor.md` — por que la extension entrega el documento en vez de interpretarlo
 - `docs/adaptadores.md` — los cuatro adaptadores y que tan verificado esta cada uno
 - `docs/contrato-motor-riesgo.md` — el endpoint propuesto al backend
 - `docs/safari.md` — empaquetado con Xcode y limitaciones

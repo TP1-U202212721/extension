@@ -7,14 +7,16 @@ import { adapterPara } from '../extraction/registry.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import { esSesionRequerida, esVeredictoRespuesta, type EvaluarMensaje } from '../messaging.js';
 import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.js';
-import type { FeatureSet } from '../domain/features.js';
+import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio } from '../transport/DomainVeracityClient.js';
+import type { DetalleDocumento } from '../transport/DocumentAnalysisClient.js';
 
 interface Evaluado {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
   readonly dominio: DetalleDominio | null;
+  readonly documento: DetalleDocumento | null;
 }
 import '../ui/tailwind.css';
 
@@ -25,6 +27,10 @@ const SIN_RESPUESTA: Verdict = {
   dimensionesVacias: [],
   motivo: 'No se recibio una respuesta valida del motor de riesgo.',
 };
+
+const SIN_FEATURES: FeatureSet = Object.fromEntries(
+  FEATURE_IDS.map((id) => [id, indeterminado('No se recibio una respuesta valida.')]),
+) as unknown as FeatureSet;
 
 export default defineContentScript({
   // Los dominios por pais son distintos sitios para el navegador, asi que hay
@@ -79,23 +85,30 @@ export default defineContentScript({
     // el badge. La extraccion ocurre cuando el comprador hace clic.
     const ancla = adapter.anclaBadge(document);
 
-    const evaluar = async (
-      features: FeatureSet,
-    ): Promise<Evaluado | null> => {
+    const evaluar = async (): Promise<Evaluado | null> => {
+      // Se entrega el documento tal como el navegador lo renderizo, sin
+      // recortar: el backend acota al subarbol relevante. No se pide nada a la
+      // plataforma para obtenerlo, y el badge vive en shadow DOM, asi que su
+      // contenido no entra aqui.
       const mensaje: EvaluarMensaje = {
         tipo: 'evaluar',
         plataforma: publicacion.plataforma,
         publicacionId: publicacion.publicacionId,
         url: location.href,
-        features,
+        html: document.documentElement.outerHTML,
       };
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
       if (esSesionRequerida(bruto)) return null;
       if (esVeredictoRespuesta(bruto)) {
-        return { verdict: bruto.verdict, features: bruto.features, dominio: bruto.dominio };
+        return {
+          verdict: bruto.verdict,
+          features: bruto.features,
+          dominio: bruto.dominio,
+          documento: bruto.documento,
+        };
       }
       // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
-      return { verdict: SIN_RESPUESTA, features, dominio: null };
+      return { verdict: SIN_RESPUESTA, features: SIN_FEATURES, dominio: null, documento: null };
     };
 
     let root: Root | undefined;
@@ -123,7 +136,6 @@ export default defineContentScript({
         root.render(
           createElement(ScamShieldBadge, {
             plataforma: publicacion.plataforma,
-            extraer: () => adapter.extraer(document),
             evaluar,
           }),
         );

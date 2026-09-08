@@ -4,6 +4,7 @@ import { URL_REGISTRO } from '../auth/sesion.js';
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio } from '../transport/DomainVeracityClient.js';
+import type { DetalleDocumento } from '../transport/DocumentAnalysisClient.js';
 import { COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 import { VerdictPanel } from './VerdictPanel.js';
 
@@ -16,19 +17,17 @@ type Estado =
       readonly verdict: Verdict;
       readonly features: FeatureSet;
       readonly dominio: DetalleDominio | null;
+      readonly documento: DetalleDocumento | null;
     };
 
 interface Props {
   readonly plataforma: string;
-  /** Lectura del DOM. Se ejecuta al hacer clic, no al cargar la pagina. */
-  readonly extraer: () => FeatureSet;
   /** Devuelve null cuando el motor exige una sesion que no hay. */
-  readonly evaluar: (
-    features: FeatureSet,
-  ) => Promise<{
+  readonly evaluar: () => Promise<{
     verdict: Verdict;
     features: FeatureSet;
     dominio: DetalleDominio | null;
+    documento: DetalleDocumento | null;
   } | null>;
 }
 
@@ -40,7 +39,7 @@ interface Props {
  * Asi el comprador decide cuando analizar, y la extension no hace trabajo ni
  * emite peticiones que el usuario no pidio.
  */
-export function ScamShieldBadge({ plataforma, extraer, evaluar }: Props) {
+export function ScamShieldBadge({ plataforma, evaluar }: Props) {
   const [estado, setEstado] = useState<Estado>({ fase: 'inactivo' });
   const [abierto, setAbierto] = useState(false);
 
@@ -51,13 +50,19 @@ export function ScamShieldBadge({ plataforma, extraer, evaluar }: Props) {
       return;
     }
     setEstado({ fase: 'analizando' });
-    void evaluar(extraer()).then((r) => {
+    void evaluar().then((r) => {
       if (r === null) {
         setEstado({ fase: 'requiere-sesion' });
         setAbierto(true);
         return;
       }
-      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, dominio: r.dominio });
+      setEstado({
+        fase: 'listo',
+        verdict: r.verdict,
+        features: r.features,
+        dominio: r.dominio,
+        documento: r.documento,
+      });
       setAbierto(true);
     });
   };
@@ -140,6 +145,7 @@ export function ScamShieldBadge({ plataforma, extraer, evaluar }: Props) {
             verdict={estado.verdict}
             features={estado.features}
             dominio={estado.dominio}
+            documento={estado.documento}
             plataforma={plataforma}
             onCerrar={() => {
               setAbierto(false);

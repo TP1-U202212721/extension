@@ -8,6 +8,7 @@ import {
 } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio, SenalDominio } from '../transport/DomainVeracityClient.js';
+import type { DetalleDocumento } from '../transport/DocumentAnalysisClient.js';
 import { AVISO, COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 
 const iconoDe = (clave: keyof typeof ETIQUETA_DESENLACE) => {
@@ -22,6 +23,8 @@ interface Props {
   readonly plataforma: string;
   /** Senales del analizador de dominio del backend, si respondio. */
   readonly dominio?: DetalleDominio | null;
+  /** Metadatos del analisis del documento, si respondio. */
+  readonly documento?: DetalleDocumento | null;
   readonly onCerrar?: () => void;
 }
 
@@ -30,7 +33,7 @@ interface Props {
  * se verifico, que quedo sin resolver y que acredita cada caracteristica. La
  * ausencia de informacion se muestra como tal, nunca como seguridad.
  */
-export function VerdictPanel({ verdict, features, plataforma, dominio, onCerrar }: Props) {
+export function VerdictPanel({ verdict, features, plataforma, dominio, documento, onCerrar }: Props) {
   const clave = verdict.kind === 'riesgo' ? verdict.nivel : 'evidencia-insuficiente';
   const Icono = iconoDe(clave);
 
@@ -69,6 +72,15 @@ export function VerdictPanel({ verdict, features, plataforma, dominio, onCerrar 
         <p className="mb-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
           {verdict.motivo} No se emite un nivel de riesgo porque no hay evidencia suficiente
           para sostenerlo.
+        </p>
+      )}
+
+      {documento != null && (
+        <p className="mb-3 rounded-xl bg-slate-50 px-4 py-2 text-xs text-slate-600">
+          El documento resolvio el{' '}
+          <span className="font-bold">{Math.round(documento.coverage * 100)}%</span> de las
+          caracteristicas que se leen de la pagina
+          {documento.reviewCount > 0 && `, con ${String(documento.reviewCount)} resenas visibles`}.
         </p>
       )}
 

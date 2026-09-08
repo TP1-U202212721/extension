@@ -1,4 +1,3 @@
-import type { FeatureSet } from '../domain/features.js';
 
 export interface Publicacion {
   readonly plataforma: string;
@@ -44,8 +43,6 @@ export interface MarketplaceAdapter {
   /** Decide si esta URL corresponde a una ficha de producto concreta. */
   reconoce(url: URL): boolean;
   identificar(url: URL): Publicacion | null;
-  /** Extrae solo las caracteristicas de cliente; las de backend quedan indeterminadas. */
-  extraer(doc: Document): FeatureSet;
   /**
    * Donde insertar el badge dentro de la pagina. Devuelve null si no encuentra
    * un anclaje reconocible; en ese caso el content script lo fija en una esquina
