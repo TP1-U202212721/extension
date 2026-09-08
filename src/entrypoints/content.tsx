@@ -9,6 +9,13 @@ import { esSesionRequerida, esVeredictoRespuesta, type EvaluarMensaje } from '..
 import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.js';
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
+import type { DetalleDominio } from '../transport/DomainVeracityClient.js';
+
+interface Evaluado {
+  readonly verdict: Verdict;
+  readonly features: FeatureSet;
+  readonly dominio: DetalleDominio | null;
+}
 import '../ui/tailwind.css';
 
 const SIN_RESPUESTA: Verdict = {
@@ -62,18 +69,21 @@ export default defineContentScript({
 
     const evaluar = async (
       features: FeatureSet,
-    ): Promise<{ verdict: Verdict; features: FeatureSet } | null> => {
+    ): Promise<Evaluado | null> => {
       const mensaje: EvaluarMensaje = {
         tipo: 'evaluar',
         plataforma: publicacion.plataforma,
         publicacionId: publicacion.publicacionId,
+        url: location.href,
         features,
       };
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
       if (esSesionRequerida(bruto)) return null;
-      if (esVeredictoRespuesta(bruto)) return { verdict: bruto.verdict, features: bruto.features };
+      if (esVeredictoRespuesta(bruto)) {
+        return { verdict: bruto.verdict, features: bruto.features, dominio: bruto.dominio };
+      }
       // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
-      return { verdict: SIN_RESPUESTA, features };
+      return { verdict: SIN_RESPUESTA, features, dominio: null };
     };
 
     let root: Root | undefined;

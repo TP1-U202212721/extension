@@ -4,6 +4,10 @@ import { riskEngine } from '../config.js';
 import { esEvaluarMensaje, type Respuesta } from '../messaging.js';
 import { SesionRequeridaError } from '../transport/HttpRiskEngineClient.js';
 import { obtenerToken } from '../auth/sesion.js';
+import {
+  consultarVeracidadDeDominio,
+  type DetalleDominio,
+} from '../transport/DomainVeracityClient.js';
 
 export default defineBackground(() => {
   browser.runtime.onMessage.addListener(
@@ -12,17 +16,25 @@ export default defineBackground(() => {
 
       // El reporte exige sesion, sea cual sea el motor detras. El badge se
       // inyecta igual en la publicacion: lo que se retiene es el veredicto.
+      let dominio: DetalleDominio | null = null;
+
       void obtenerToken()
-        .then((token) => {
+        .then(async (token) => {
           if (token === null) throw new SesionRequeridaError();
+
+          // Caracteristica 2: ya tiene endpoint real. Se resuelve antes de
+          // decidir para que la politica vea el valor observado, no el hueco.
+          const veracidad = await consultarVeracidadDeDominio(mensaje.url, token);
+          dominio = veracidad.detalle;
+
           return riskEngine.evaluar({
             plataforma: mensaje.plataforma,
             publicacionId: mensaje.publicacionId,
-            features: mensaje.features,
+            features: { ...mensaje.features, veracidadDeDominio: veracidad.feature },
           });
         })
         .then(({ verdict, features }) => {
-          sendResponse({ tipo: 'veredicto', verdict, features });
+          sendResponse({ tipo: 'veredicto', verdict, features, dominio });
         })
         .catch((e: unknown) => {
           if (e instanceof SesionRequeridaError) {
@@ -33,6 +45,7 @@ export default defineBackground(() => {
           sendResponse({
             tipo: 'veredicto',
             features: mensaje.features,
+            dominio,
             verdict: {
               kind: 'evidencia-insuficiente',
               resueltas: [],

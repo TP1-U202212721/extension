@@ -23,8 +23,9 @@ export type Escenario = 'alto' | 'moderado' | 'bajo' | 'evidencia-insuficiente';
  * para impedir. Los escenarios forzados siguen disponibles para maquetar la UI,
  * pero hay que pedirlos explicitamente.
  *
- * TODO(backend): veracidadDeDominio requiere un endpoint que valide el dominio
- * (whois/dns). No existe nada de eso en ScamShieldAPI.
+ * veracidadDeDominio ya NO se simula: la resuelve el background contra
+ * POST /api/v1/DomainAnalysis/Veracity antes de llamar al motor.
+ *
  * TODO(backend): reputacionDelVendedor requiere el historial agregado del
  * vendedor. Hoy solo existe GET /api/v1/Seller, que devuelve un riskLevel ya
  * calculado, no una reputacion.
@@ -57,7 +58,7 @@ export class MockRiskEngineClient implements RiskEngineClient {
   #conBackendDeEjemplo(f: FeatureSet): FeatureSet {
     return {
       ...f,
-      veracidadDeDominio: conocido(3, 'Escenario de prueba: el dominio coincide con la plataforma.'),
+      veracidadDeDominio: conocido(5, 'Escenario de prueba: el dominio coincide con la plataforma.'),
       reputacionDelVendedor: conocido(2, 'Escenario de prueba: historial del vendedor.'),
       autenticidadDeResenas: conocido(0.18, 'Escenario de prueba: 18% con indicios de ser falsas.'),
     };

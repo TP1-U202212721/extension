@@ -3,6 +3,7 @@ import { Shield, ShieldAlert, ShieldCheck, ShieldQuestion, Loader2, LogIn } from
 import { URL_REGISTRO } from '../auth/sesion.js';
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
+import type { DetalleDominio } from '../transport/DomainVeracityClient.js';
 import { COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 import { VerdictPanel } from './VerdictPanel.js';
 
@@ -10,7 +11,12 @@ type Estado =
   | { readonly fase: 'inactivo' }
   | { readonly fase: 'analizando' }
   | { readonly fase: 'requiere-sesion' }
-  | { readonly fase: 'listo'; readonly verdict: Verdict; readonly features: FeatureSet };
+  | {
+      readonly fase: 'listo';
+      readonly verdict: Verdict;
+      readonly features: FeatureSet;
+      readonly dominio: DetalleDominio | null;
+    };
 
 interface Props {
   readonly plataforma: string;
@@ -19,7 +25,11 @@ interface Props {
   /** Devuelve null cuando el motor exige una sesion que no hay. */
   readonly evaluar: (
     features: FeatureSet,
-  ) => Promise<{ verdict: Verdict; features: FeatureSet } | null>;
+  ) => Promise<{
+    verdict: Verdict;
+    features: FeatureSet;
+    dominio: DetalleDominio | null;
+  } | null>;
 }
 
 /**
@@ -47,7 +57,7 @@ export function ScamShieldBadge({ plataforma, extraer, evaluar }: Props) {
         setAbierto(true);
         return;
       }
-      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features });
+      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, dominio: r.dominio });
       setAbierto(true);
     });
   };
@@ -129,6 +139,7 @@ export function ScamShieldBadge({ plataforma, extraer, evaluar }: Props) {
           <VerdictPanel
             verdict={estado.verdict}
             features={estado.features}
+            dominio={estado.dominio}
             plataforma={plataforma}
             onCerrar={() => {
               setAbierto(false);

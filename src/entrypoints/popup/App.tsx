@@ -21,7 +21,7 @@ const conCliente = (): FeatureSet =>
     presenciaDeResenas: conocido(true, 'La publicacion declara 1250 opiniones.'),
     politicasDeGarantia: conocido(2, 'La publicacion declara garantia de fabrica: 12 meses.'),
     volumenDeVentas: conocido(500, 'La publicacion declara aproximadamente 500 ventas.'),
-    veracidadDeDominio: conocido(3, 'El dominio corresponde a la plataforma declarada.'),
+    veracidadDeDominio: conocido(5, 'El dominio corresponde a la plataforma declarada.'),
     reputacionDelVendedor: conocido(2, 'Reputacion derivada del historial del vendedor.'),
     autenticidadDeResenas: conocido(0.18, 'El 18% de las resenas presenta indicios de ser falsa.'),
   }) as unknown as FeatureSet;

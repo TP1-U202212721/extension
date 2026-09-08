@@ -98,3 +98,56 @@ Cada caracteristica es uno de tres estados: `conocido` (con `valor` y `evidencia
 - **Solo viajan las ocho caracteristicas.** Nunca el HTML de la pagina, nunca la URL
   completa, nunca el texto crudo de las resenas mas alla de lo que la caracteristica 4
   necesite.
+
+
+## Veracidad de dominio — endpoint real (ya no es mock)
+
+La caracteristica 2 dejo de simularse. La resuelve el background contra la API real
+antes de invocar al motor de riesgo:
+
+```
+POST /api/v1/DomainAnalysis/Veracity    body: { "url": "https://..." }
+GET  /api/v1/DomainAnalysis/Veracity?url=...
+```
+
+Exige JWT, como el resto de la API. Encaja con el diseno actual: sin sesion no hay
+reporte, asi que el token siempre esta disponible cuando se llama.
+
+### Por que enviar la URL no contradice la restriccion de la tesis
+
+Lo que el backend analiza es el **nombre de dominio** contra registro, DNS, TLS y
+listas de reputacion. No visita la ficha del vendedor ni descarga su HTML. La unica
+fuente de datos de la publicacion sigue siendo el documento que el navegador del
+comprador ya recibio. La prohibicion de scraping se mantiene intacta.
+
+### Traduccion de la escala a los tres estados
+
+El backend devuelve `veracity` en 1..5, donde 3 es "sin evidencia suficiente". Ese 3
+**no** se traduce automaticamente a `indeterminado`: dentro de la escala del backend
+significa dos cosas distintas, y lo que las separa es `confidence` (1..4).
+
+| veracity | confidence | Estado en el modelo |
+|---|---|---|
+| 3 | 1-2 (muy baja / baja) | `indeterminado` — no hubo con que evaluar |
+| 3 | 3-4 (media / alta) | `conocido(3)` — se evaluo y no inclina a ningun lado |
+| 1, 2, 4, 5 | cualquiera | `conocido(n)` |
+
+`ThresholdPolicy` cuenta la caracteristica como favorable solo desde `>= 4`
+("probablemente legitimo" y "legitimo"). El 3 es un valor conocido que no acredita nada.
+
+### Presentacion
+
+`unverifiedSignals` se muestra en el panel junto a las senales de riesgo y a favor,
+con el mismo peso visual. No haber podido comprobar algo es informacion para el
+comprador; ocultarlo lo presentaria como seguridad.
+
+### Timeout
+
+El presupuesto del analizador es de 5 s y degrada parcial. El cliente espera **9 s**
+para no cortar un veredicto que el backend igual iba a entregar. Si expira, la
+caracteristica queda `indeterminado`, nunca favorable.
+
+## Lo que sigue simulado
+
+`reputacionDelVendedor` y `autenticidadDeResenas`. `MockRiskEngineClient` no les inventa
+valores: las deja como llegan (indeterminadas) y la politica se abstiene.

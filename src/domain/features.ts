@@ -78,9 +78,17 @@ export type ProteccionDePago = 'declarada' | 'no-declarada';
 /** Escala ordinal 0-3, de menor a mayor confianza. */
 export type Ordinal = 0 | 1 | 2 | 3;
 
+/**
+ * Escala del analizador de dominio del backend (`GET/POST /DomainAnalysis/Veracity`).
+ * No se normaliza a `Ordinal` a proposito: 3 no es "la mitad", es un nivel con
+ * significado propio ("sin evidencia suficiente") y perderlo al reescalar
+ * borraria justamente la distincion que este modelo existe para preservar.
+ */
+export type Veracidad = 1 | 2 | 3 | 4 | 5;
+
 export interface FeatureSet {
   readonly proteccionDePago: FeatureValue<ProteccionDePago>;
-  readonly veracidadDeDominio: FeatureValue<Ordinal>;
+  readonly veracidadDeDominio: FeatureValue<Veracidad>;
   readonly reputacionDelVendedor: FeatureValue<Ordinal>;
   /** Proporcion estimada de resenas artificiales, 0.0 - 1.0. */
   readonly autenticidadDeResenas: FeatureValue<number>;

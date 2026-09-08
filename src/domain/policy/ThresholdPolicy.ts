@@ -77,7 +77,9 @@ export class ThresholdPolicy implements DecisionPolicy {
     };
 
     if (estaResuelta(f.proteccionDePago)) sumar(f.proteccionDePago.valor === 'declarada');
-    if (estaResuelta(f.veracidadDeDominio)) sumar(f.veracidadDeDominio.valor >= 2);
+    // 4 y 5 son "probablemente legitimo" y "legitimo". El 3 del backend es
+    // "sin evidencia suficiente": es un valor conocido, pero no acredita nada.
+    if (estaResuelta(f.veracidadDeDominio)) sumar(f.veracidadDeDominio.valor >= 4);
     if (estaResuelta(f.reputacionDelVendedor)) sumar(f.reputacionDelVendedor.valor >= 2);
     if (estaResuelta(f.autenticidadDeResenas)) sumar(f.autenticidadDeResenas.valor <= 0.3);
     if (estaResuelta(f.puntuacionDelProducto)) sumar(f.puntuacionDelProducto.valor >= 4);

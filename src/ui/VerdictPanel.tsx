@@ -7,6 +7,7 @@ import {
   type FeatureSet,
 } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
+import type { DetalleDominio, SenalDominio } from '../transport/DomainVeracityClient.js';
 import { AVISO, COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 
 const iconoDe = (clave: keyof typeof ETIQUETA_DESENLACE) => {
@@ -19,6 +20,8 @@ interface Props {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
   readonly plataforma: string;
+  /** Senales del analizador de dominio del backend, si respondio. */
+  readonly dominio?: DetalleDominio | null;
   readonly onCerrar?: () => void;
 }
 
@@ -27,7 +30,7 @@ interface Props {
  * se verifico, que quedo sin resolver y que acredita cada caracteristica. La
  * ausencia de informacion se muestra como tal, nunca como seguridad.
  */
-export function VerdictPanel({ verdict, features, plataforma, onCerrar }: Props) {
+export function VerdictPanel({ verdict, features, plataforma, dominio, onCerrar }: Props) {
   const clave = verdict.kind === 'riesgo' ? verdict.nivel : 'evidencia-insuficiente';
   const Icono = iconoDe(clave);
 
@@ -68,6 +71,8 @@ export function VerdictPanel({ verdict, features, plataforma, onCerrar }: Props)
           para sostenerlo.
         </p>
       )}
+
+      {dominio != null && <AnalisisDeDominio d={dominio} />}
 
       <ListaCaracteristicas titulo="Se verifico" ids={resueltas} features={features} verificado />
       <ListaCaracteristicas
@@ -121,6 +126,79 @@ function ListaCaracteristicas({
             </li>
           );
         })}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Desglose del analizador de dominio. Las senales sin verificar se muestran
+ * aparte y con el mismo peso visual que las demas: que algo no se haya podido
+ * comprobar es informacion para el comprador, no un detalle a esconder.
+ */
+function AnalisisDeDominio({ d }: { readonly d: DetalleDominio }) {
+  const cobertura = Math.round(d.coverage * 100);
+  return (
+    <details className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <summary className="cursor-pointer list-none text-sm font-bold text-slate-800">
+        Analisis del dominio · {d.registrableDomain}
+      </summary>
+
+      <p className="mt-2 text-sm leading-snug text-slate-700">{d.summary}</p>
+
+      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <Dato titulo="Nivel" valor={d.veracityLabel} />
+        <Dato titulo="Confianza" valor={d.confidenceLabel} />
+        <Dato titulo="Cobertura" valor={`${String(cobertura)}%`} />
+      </dl>
+
+      <GrupoSenales titulo="Senales de riesgo" senales={d.riskSignals} />
+      <GrupoSenales titulo="Senales a favor" senales={d.trustSignals} />
+      <GrupoSenales titulo="No se pudo comprobar" senales={d.unverifiedSignals} />
+
+      {d.limitations.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Limitaciones aplicadas
+          </p>
+          <ul className="mt-1 list-disc pl-4 text-xs leading-snug text-slate-600">
+            {d.limitations.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </details>
+  );
+}
+
+function Dato({ titulo, valor }: { readonly titulo: string; readonly valor: string }) {
+  return (
+    <div className="rounded-lg bg-white px-2 py-1.5">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{titulo}</dt>
+      <dd className="text-xs font-semibold text-slate-800">{valor === '' ? '—' : valor}</dd>
+    </div>
+  );
+}
+
+function GrupoSenales({
+  titulo,
+  senales,
+}: {
+  readonly titulo: string;
+  readonly senales: readonly SenalDominio[];
+}) {
+  if (senales.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{titulo}</p>
+      <ul className="mt-1 flex flex-col gap-1">
+        {senales.map((s) => (
+          <li key={s.code} className="text-xs leading-snug text-slate-700">
+            <span className="font-semibold">{s.familyLabel}: </span>
+            {s.explanation}
+          </li>
+        ))}
       </ul>
     </div>
   );

@@ -1,5 +1,6 @@
 import type { FeatureSet } from './domain/features.js';
 import type { Verdict } from './domain/verdict.js';
+import type { DetalleDominio } from './transport/DomainVeracityClient.js';
 
 /**
  * Contrato entre el content script y el background.
@@ -12,6 +13,8 @@ export interface EvaluarMensaje {
   readonly tipo: 'evaluar';
   readonly plataforma: string;
   readonly publicacionId: string;
+  /** URL que el comprador ya tiene abierta. Solo se usa para analizar el dominio. */
+  readonly url: string;
   readonly features: FeatureSet;
 }
 
@@ -20,6 +23,8 @@ export interface VeredictoRespuesta {
   readonly verdict: Verdict;
   /** Caracteristicas sobre las que se calculo el veredicto. */
   readonly features: FeatureSet;
+  /** Senales del analizador de dominio, para la presentacion explicativa. */
+  readonly dominio: DetalleDominio | null;
 }
 
 /** El motor exige sesion y no hay ninguna activa. */
