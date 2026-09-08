@@ -39,9 +39,12 @@ export default defineConfig({
       'Estima el riesgo de una publicacion de venta leyendo la pagina que ya abriste, antes de que pagues.',
     default_locale: undefined,
 
-    // Minimo indispensable. storage guarda preferencias locales; no hay
-    // permisos de red hacia las plataformas porque no se les pide nada.
-    permissions: ['storage'],
+    // storage guarda preferencias locales. cookies + host_permissions se
+    // limitan al dominio de ScamShield: sirven para reutilizar la sesion que el
+    // comprador ya inicio en la aplicacion, en vez de pedirle credenciales aqui.
+    // Sigue sin haber permiso alguno sobre los marketplaces: no se les pide nada.
+    permissions: ['storage', 'cookies'],
+    host_permissions: ['https://scamshield.ryzeon.dev/*'],
 
     ...(browser === 'firefox'
       ? {

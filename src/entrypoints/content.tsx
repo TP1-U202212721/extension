@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { adapterPara } from '../extraction/registry.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
-import { esVeredictoRespuesta, type EvaluarMensaje } from '../messaging.js';
+import { esSesionRequerida, esVeredictoRespuesta, type EvaluarMensaje } from '../messaging.js';
 import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.js';
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
@@ -60,7 +60,9 @@ export default defineContentScript({
     // el badge. La extraccion ocurre cuando el comprador hace clic.
     const ancla = adapter.anclaBadge(document);
 
-    const evaluar = async (features: FeatureSet): Promise<Verdict> => {
+    const evaluar = async (
+      features: FeatureSet,
+    ): Promise<{ verdict: Verdict; features: FeatureSet } | null> => {
       const mensaje: EvaluarMensaje = {
         tipo: 'evaluar',
         plataforma: publicacion.plataforma,
@@ -68,7 +70,10 @@ export default defineContentScript({
         features,
       };
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
-      return esVeredictoRespuesta(bruto) ? bruto.verdict : SIN_RESPUESTA;
+      if (esSesionRequerida(bruto)) return null;
+      if (esVeredictoRespuesta(bruto)) return { verdict: bruto.verdict, features: bruto.features };
+      // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
+      return { verdict: SIN_RESPUESTA, features };
     };
 
     let root: Root | undefined;

@@ -35,7 +35,10 @@ const sinEvidencia = (): FeatureSet =>
  */
 export function App() {
   const [escenario, setEscenario] = useState<Escenario>('bajo');
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [evaluacion, setEvaluacion] = useState<{
+    verdict: Verdict;
+    features: FeatureSet;
+  } | null>(null);
 
   const features = escenario === 'evidencia-insuficiente' ? sinEvidencia() : conCliente();
 
@@ -43,8 +46,8 @@ export function App() {
     let vigente = true;
     void new MockRiskEngineClient(escenario)
       .evaluar({ plataforma: 'Mercado Libre', publicacionId: 'MPEU3173976853', features })
-      .then((v) => {
-        if (vigente) setVerdict(v);
+      .then((r) => {
+        if (vigente) setEvaluacion(r);
       });
     return () => {
       vigente = false;
@@ -72,8 +75,12 @@ export function App() {
         ))}
       </div>
 
-      {verdict !== null && (
-        <VerdictPanel verdict={verdict} features={features} plataforma="Mercado Libre" />
+      {evaluacion !== null && (
+        <VerdictPanel
+          verdict={evaluacion.verdict}
+          features={evaluacion.features}
+          plataforma="Mercado Libre"
+        />
       )}
 
       <p className="mt-2 text-center text-[10px] text-slate-400">

@@ -1,11 +1,12 @@
 import { defineBackground } from 'wxt/utils/define-background';
 import { browser } from 'wxt/browser';
 import { riskEngine } from '../config.js';
-import { esEvaluarMensaje, type VeredictoRespuesta } from '../messaging.js';
+import { esEvaluarMensaje, type Respuesta } from '../messaging.js';
+import { SesionRequeridaError } from '../transport/HttpRiskEngineClient.js';
 
 export default defineBackground(() => {
   browser.runtime.onMessage.addListener(
-    (mensaje: unknown, _sender, sendResponse: (r: VeredictoRespuesta) => void) => {
+    (mensaje: unknown, _sender, sendResponse: (r: Respuesta) => void) => {
       if (!esEvaluarMensaje(mensaje)) return false;
 
       void riskEngine
@@ -14,13 +15,18 @@ export default defineBackground(() => {
           publicacionId: mensaje.publicacionId,
           features: mensaje.features,
         })
-        .then((verdict) => {
-          sendResponse({ tipo: 'veredicto', verdict });
+        .then(({ verdict, features }) => {
+          sendResponse({ tipo: 'veredicto', verdict, features });
         })
-        .catch(() => {
+        .catch((e: unknown) => {
+          if (e instanceof SesionRequeridaError) {
+            sendResponse({ tipo: 'sesion-requerida' });
+            return;
+          }
           // Un fallo del motor jamas se presenta como seguridad.
           sendResponse({
             tipo: 'veredicto',
+            features: mensaje.features,
             verdict: {
               kind: 'evidencia-insuficiente',
               resueltas: [],

@@ -18,7 +18,16 @@ export interface EvaluarMensaje {
 export interface VeredictoRespuesta {
   readonly tipo: 'veredicto';
   readonly verdict: Verdict;
+  /** Caracteristicas sobre las que se calculo el veredicto. */
+  readonly features: FeatureSet;
 }
+
+/** El motor exige sesion y no hay ninguna activa. */
+export interface SesionRequeridaRespuesta {
+  readonly tipo: 'sesion-requerida';
+}
+
+export type Respuesta = VeredictoRespuesta | SesionRequeridaRespuesta;
 
 export type Mensaje = EvaluarMensaje;
 
@@ -32,3 +41,6 @@ export const esEvaluarMensaje = (m: unknown): m is EvaluarMensaje =>
 
 export const esVeredictoRespuesta = (r: unknown): r is VeredictoRespuesta =>
   typeof r === 'object' && r !== null && 'tipo' in r && r.tipo === 'veredicto';
+
+export const esSesionRequerida = (r: unknown): r is SesionRequeridaRespuesta =>
+  typeof r === 'object' && r !== null && 'tipo' in r && r.tipo === 'sesion-requerida';
