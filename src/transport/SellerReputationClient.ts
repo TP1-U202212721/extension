@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../api.js';
 import { conocido, indeterminado, type FeatureValue, type Reputacion } from '../domain/features.js';
+import { soloLoLeido, type DatosDelVendedor } from '../domain/insumos.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
 
 /**
@@ -11,24 +12,6 @@ import type { TokenProvider } from '../auth/TokenProvider.js';
  * produce una senal desfavorable. Mandar 0 por defecto en vez de omitir cambia
  * el veredicto, asi que aqui nunca se rellena nada.
  */
-export interface DatosDelVendedor {
-  readonly sellerName: string;
-  readonly platform: string;
-  readonly memberSince?: string;
-  readonly memberSinceYear?: number;
-  readonly completedSales?: number;
-  /** 1 sin distintivo, 2 basico, 3 intermedio, 4 maximo. */
-  readonly badgeTier?: number;
-  readonly isRecognizedSeller?: boolean;
-  readonly badgeLabel?: string;
-  readonly ratingAverage?: number;
-  readonly ratingCount?: number;
-  readonly negativeRatingShare?: number;
-  readonly claimShare?: number;
-  readonly cancellationShare?: number;
-  readonly onTimeDeliveryShare?: number;
-}
-
 export interface SenalVendedor {
   readonly code: string;
   readonly familyLabel: string;
@@ -115,7 +98,10 @@ export const consultarReputacion = async (
     const res = await fetch(`${API_BASE_URL}/SellerReputation/Estimate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(datos),
+      // soloLoLeido es la garantia de la regla: una clave que no se leyo NO
+      // viaja. Un campo ausente produce senal no verificable; el mismo campo en
+      // 0 produce senal desfavorable. Ver src/domain/insumos.ts.
+      body: JSON.stringify(soloLoLeido(datos)),
       signal: abortar.signal,
     });
     const cuerpo: unknown = await res.json();

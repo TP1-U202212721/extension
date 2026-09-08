@@ -94,6 +94,9 @@ export default defineContentScript({
         publicacionId: publicacion.publicacionId,
         url: location.href,
         html: document.documentElement.outerHTML,
+        // Se leen del DOM vivo porque el service worker de MV3 no tiene
+        // DOMParser: el background no podria reconstruir el documento.
+        insumos: adapter.insumos(document),
       };
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
       if (esSesionRequerida(bruto)) return null;

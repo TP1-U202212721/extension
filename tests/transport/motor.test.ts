@@ -5,12 +5,14 @@ import { SesionRequeridaError } from '../../src/transport/RiskEngineClient.js';
 import { ThresholdPolicy } from '../../src/domain/policy/ThresholdPolicy.js';
 import { FEATURE_IDS, esConocida } from '../../src/domain/features.js';
 import type { TokenProvider } from '../../src/auth/TokenProvider.js';
+import { SIN_INSUMOS } from '../../src/domain/insumos.js';
 
 const SOLICITUD = {
   plataforma: 'Mercado Libre',
   publicacionId: 'MPE449861158',
   url: 'https://articulo.mercadolibre.com.pe/MPE-449861158-x-_JM',
   html: '<html></html>',
+  insumos: SIN_INSUMOS,
 };
 
 const tokens = (valor: string | null): TokenProvider => ({
@@ -19,10 +21,9 @@ const tokens = (valor: string | null): TokenProvider => ({
 });
 
 const APAGADOS = { documento: false, dominio: false, vendedor: false, resenas: false };
-const sinInsumos = () => ({ vendedor: null, resenas: [], categoria: '' });
 
 const motor = (t: string | null, analizadores = APAGADOS) =>
-  new BackendRiskEngineClient(new ThresholdPolicy(), tokens(t), analizadores, sinInsumos);
+  new BackendRiskEngineClient(new ThresholdPolicy(), tokens(t), analizadores);
 
 describe('motor real: credenciales', () => {
   it('sin token no evalua: lanza SesionRequeridaError', async () => {
@@ -38,12 +39,7 @@ describe('motor real: credenciales', () => {
         return Promise.resolve('tok');
       },
     };
-    const m = new BackendRiskEngineClient(
-      new ThresholdPolicy(),
-      proveedor,
-      APAGADOS,
-      sinInsumos,
-    );
+    const m = new BackendRiskEngineClient(new ThresholdPolicy(), proveedor, APAGADOS);
     await m.evaluar(SOLICITUD);
     expect(pedido).toBe(1);
   });
@@ -70,7 +66,7 @@ describe('motor real: degradacion', () => {
     }
   });
 
-  it('los analizadores del PR 10 apagados no fabrican valores', async () => {
+  it('un analizador apagado no fabrica valores', async () => {
     const { features } = await motor('tok').evaluar(SOLICITUD);
     expect(features.reputacionDelVendedor.kind).toBe('indeterminado');
     expect(features.autenticidadDeResenas.kind).toBe('indeterminado');

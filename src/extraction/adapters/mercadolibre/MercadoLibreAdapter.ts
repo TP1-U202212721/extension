@@ -4,6 +4,8 @@ import type {
   TarjetaListado,
 } from '../../MarketplaceAdapter.js';
 import { ANCLA_BADGE, TARJETAS, primero } from './selectors.js';
+import { insumosDeMercadoLibre } from './insumos.js';
+import type { Insumos } from '../../../domain/insumos.js';
 
 /**
  * MLA123456789, MPE123456789, y la variante de catalogo con U intercalada:
@@ -76,5 +78,9 @@ export class MercadoLibreAdapter implements MarketplaceAdapter {
       n = n.parentElement;
     }
     return null;
+  }
+
+  insumos(doc: Document): Insumos {
+    return insumosDeMercadoLibre(doc);
   }
 }

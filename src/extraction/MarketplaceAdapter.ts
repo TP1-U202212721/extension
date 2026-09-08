@@ -1,4 +1,6 @@
 
+import type { Insumos } from '../domain/insumos.js';
+
 export interface Publicacion {
   readonly plataforma: string;
   readonly publicacionId: string;
@@ -51,4 +53,14 @@ export interface MarketplaceAdapter {
   anclaBadge(doc: Document): Element | null;
   /** Tarjetas de listado o carrusel presentes en la pagina. Vacio si no hay. */
   tarjetas(doc: Document): readonly TarjetaListado[];
+
+  /**
+   * Insumos de los analizadores de reputacion y de resenas, que no reciben el
+   * documento sino datos ya estructurados.
+   *
+   * Es la unica lectura de contenido que sobrevive en el cliente, y esta aqui
+   * por decision del backend, no por diseno de esta capa: ver docs/adr/0006.
+   * Lo que no se pueda leer se OMITE; nunca se rellena.
+   */
+  insumos(doc: Document): Insumos;
 }

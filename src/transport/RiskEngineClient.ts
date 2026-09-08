@@ -1,4 +1,5 @@
 import type { FeatureSet } from '../domain/features.js';
+import type { Insumos } from '../domain/insumos.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio } from './DomainVeracityClient.js';
 import type { DetalleDocumento } from './DocumentAnalysisClient.js';
@@ -12,6 +13,12 @@ export interface EvaluacionSolicitud {
   readonly url: string;
   /** El documento que el navegador YA renderizo. Ver docs/adr/0004. */
   readonly html: string;
+  /**
+   * Lo que los analizadores de reputacion y de resenas necesitan y el documento
+   * no devuelve. Lo lee el content script del DOM vivo: el service worker de
+   * MV3 no tiene DOMParser, asi que el background no podria hacerlo.
+   */
+  readonly insumos: Insumos;
 }
 
 /** Evidencia que acompana al veredicto, para la presentacion explicativa. */

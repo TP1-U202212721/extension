@@ -1,4 +1,5 @@
 import { primero, todos } from '../../dom.js';
+import { SIN_INSUMOS, type Insumos } from '../../../domain/insumos.js';
 import type { MarketplaceAdapter, Publicacion, TarjetaListado } from '../../MarketplaceAdapter.js';
 
 const ID = /\/itm\/(?:.*\/)?(\d{11,12})(?:[/?]|$)/;
@@ -50,5 +51,14 @@ export class EbayAdapter implements MarketplaceAdapter {
       salida.push({ elemento: tarjeta, href });
     }
     return salida;
+  }
+
+  /**
+   * Sin implementar para eBay. Devolver nada deja las dos caracteristicas sin
+   * resolver, que es el comportamiento correcto: inventar campos las moveria en
+   * contra del vendedor sin haber medido.
+   */
+  insumos(_doc: Document): Insumos {
+    return SIN_INSUMOS;
   }
 }

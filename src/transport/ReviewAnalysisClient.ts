@@ -6,13 +6,7 @@ import {
   type FeatureValue,
 } from '../domain/features.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
-
-/** Una resena leida del DOM. La autoria ni se manda ni se acepta. */
-export interface ResenaLeida {
-  readonly text: string;
-  /** Estrellas 0-5. 0 si la ficha no las mostraba. */
-  readonly rating?: number;
-}
+import { soloLoLeido, type ResenaLeida } from '../domain/insumos.js';
 
 /** Limites del backend (`ReviewAnalysis:MaxReviews` / `MaxReviewLength`). */
 export const MAX_RESENAS = 200;
@@ -85,9 +79,12 @@ export const consultarAutenticidad = async (
   }
 
   // Se recortan aqui para no gastar la subida en un 400 previsible.
+  // El rating se OMITE cuando la ficha no lo mostraba. Mandarlo en 0 lo
+  // convertiria en una resena de una estrella, que es una observacion que nadie
+  // hizo. Ver src/domain/insumos.ts.
   const cuerpoResenas = resenas
     .slice(0, MAX_RESENAS)
-    .map((r) => ({ text: r.text.slice(0, MAX_LARGO_RESENA), rating: r.rating ?? 0 }));
+    .map((r) => soloLoLeido({ text: r.text.slice(0, MAX_LARGO_RESENA), rating: r.rating }));
 
   const abortar = new AbortController();
   const reloj = setTimeout(() => {

@@ -42,6 +42,7 @@ export default defineBackground(() => {
           publicacionId: mensaje.publicacionId,
           url: mensaje.url,
           html: mensaje.html,
+          insumos: mensaje.insumos,
         })
         .then(({ verdict, features, detalles }) => {
           sendResponse({ tipo: 'veredicto', verdict, features, detalles });

@@ -3,8 +3,8 @@ import type { DecisionPolicy } from '../domain/policy/DecisionPolicy.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
 import { analizarDocumento } from './DocumentAnalysisClient.js';
 import { consultarVeracidadDeDominio } from './DomainVeracityClient.js';
-import { consultarReputacion, type DatosDelVendedor } from './SellerReputationClient.js';
-import { consultarAutenticidad, type ResenaLeida } from './ReviewAnalysisClient.js';
+import { consultarReputacion } from './SellerReputationClient.js';
+import { consultarAutenticidad } from './ReviewAnalysisClient.js';
 import {
   SesionRequeridaError,
   type Detalles,
@@ -13,26 +13,12 @@ import {
   type RiskEngineClient,
 } from './RiskEngineClient.js';
 
-/**
- * Que analizadores estan disponibles.
- *
- * `vendedor` y `resenas` viven en el PR 10, sin mergear. Sus clientes estan
- * completos y tipados contra el contrato real; lo unico que falta para usarlos
- * es poner su bandera en true, y ademas resolver de donde salen sus insumos
- * (ver docs/adr/0005).
- */
+/** Que analizadores del backend se consultan. */
 export interface Analizadores {
   readonly documento: boolean;
   readonly dominio: boolean;
   readonly vendedor: boolean;
   readonly resenas: boolean;
-}
-
-/** Insumos que hoy nadie sabe reunir. Ver la nota de docs/adr/0005. */
-export interface InsumosDelDocumento {
-  readonly vendedor: DatosDelVendedor | null;
-  readonly resenas: readonly ResenaLeida[];
-  readonly categoria: string;
 }
 
 /**
@@ -55,7 +41,6 @@ export class BackendRiskEngineClient implements RiskEngineClient {
     private readonly policy: DecisionPolicy,
     private readonly tokens: TokenProvider,
     private readonly analizadores: Analizadores,
-    private readonly insumos: (html: string) => InsumosDelDocumento,
   ) {}
 
   async evaluar(solicitud: EvaluacionSolicitud): Promise<Evaluacion> {
@@ -64,8 +49,6 @@ export class BackendRiskEngineClient implements RiskEngineClient {
     // evalua: la UI tiene que distinguir "no pude" de "necesitas cuenta".
     if (token === null) throw new SesionRequeridaError();
 
-    const insumos = this.insumos(solicitud.html);
-
     // Los analizadores son independientes entre si, asi que van en paralelo.
     // Secuenciarlos solo sumaria sus latencias sobre la espera del comprador.
     const [doc, dominio, vendedor, resenas] = await Promise.all([
@@ -73,11 +56,11 @@ export class BackendRiskEngineClient implements RiskEngineClient {
         ? analizarDocumento(solicitud.url, solicitud.html, token)
         : null,
       this.analizadores.dominio ? consultarVeracidadDeDominio(solicitud.url, token) : null,
-      this.analizadores.vendedor && insumos.vendedor !== null
-        ? consultarReputacion(insumos.vendedor, this.tokens)
+      this.analizadores.vendedor && solicitud.insumos.vendedor !== null
+        ? consultarReputacion(solicitud.insumos.vendedor, this.tokens)
         : null,
       this.analizadores.resenas
-        ? consultarAutenticidad(insumos.resenas, insumos.categoria, this.tokens)
+        ? consultarAutenticidad(solicitud.insumos.resenas, solicitud.insumos.categoria, this.tokens)
         : null,
     ]);
 
@@ -87,10 +70,13 @@ export class BackendRiskEngineClient implements RiskEngineClient {
         dominio?.feature ?? indeterminado('El analizador de dominio esta desactivado.'),
       reputacionDelVendedor:
         vendedor?.feature ??
-        indeterminado('El analizador de reputacion del vendedor todavia no esta disponible.'),
+        indeterminado(
+          solicitud.insumos.vendedor === null
+            ? 'La ficha no identifica al vendedor.'
+            : 'El analizador de reputacion del vendedor esta desactivado.',
+        ),
       autenticidadDeResenas:
-        resenas?.feature ??
-        indeterminado('El analizador de autenticidad de resenas todavia no esta disponible.'),
+        resenas?.feature ?? indeterminado('El analizador de resenas esta desactivado.'),
     };
 
     const detalles: Detalles = {

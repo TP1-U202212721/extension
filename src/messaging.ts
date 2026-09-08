@@ -1,6 +1,7 @@
 import type { FeatureSet } from './domain/features.js';
 import type { Verdict } from './domain/verdict.js';
 import type { Detalles } from './transport/RiskEngineClient.js';
+import type { Insumos } from './domain/insumos.js';
 
 /**
  * Contrato entre el content script y el background.
@@ -20,6 +21,8 @@ export interface EvaluarMensaje {
    * backend: ver docs/adr/0004. No se pide nada a la plataforma para obtenerlo.
    */
   readonly html: string;
+  /** Insumos de reputacion y resenas, leidos del DOM vivo por el content script. */
+  readonly insumos: Insumos;
 }
 
 export interface VeredictoRespuesta {
