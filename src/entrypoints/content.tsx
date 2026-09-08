@@ -4,10 +4,19 @@ import { browser } from 'wxt/browser';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { adapterPara } from '../extraction/registry.js';
-import { VerdictPanel } from '../ui/VerdictPanel.js';
-import type { Verdict } from '../domain/verdict.js';
+import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import { esVeredictoRespuesta, type EvaluarMensaje } from '../messaging.js';
+import type { FeatureSet } from '../domain/features.js';
+import type { Verdict } from '../domain/verdict.js';
 import '../ui/tailwind.css';
+
+const SIN_RESPUESTA: Verdict = {
+  kind: 'evidencia-insuficiente',
+  resueltas: [],
+  sinResolver: [],
+  dimensionesVacias: [],
+  motivo: 'No se recibio una respuesta valida del motor de riesgo.',
+};
 
 export default defineContentScript({
   matches: [
@@ -26,47 +35,43 @@ export default defineContentScript({
     const publicacion = adapter.identificar(new URL(location.href));
     if (publicacion === null) return;
 
-    // Unica lectura de la pagina: el documento que el navegador ya renderizo.
-    // No se navega, no se pagina, no se emite ninguna peticion a la plataforma.
-    const features = adapter.extraer(document);
+    // Al cargar la pagina NO se lee el DOM ni se consulta nada: solo se inserta
+    // el badge. La extraccion ocurre cuando el comprador hace clic.
+    const ancla = adapter.anclaBadge(document);
 
-    const mensaje: EvaluarMensaje = {
-      tipo: 'evaluar',
-      plataforma: publicacion.plataforma,
-      publicacionId: publicacion.publicacionId,
-      features,
+    const evaluar = async (features: FeatureSet): Promise<Verdict> => {
+      const mensaje: EvaluarMensaje = {
+        tipo: 'evaluar',
+        plataforma: publicacion.plataforma,
+        publicacionId: publicacion.publicacionId,
+        features,
+      };
+      const bruto: unknown = await browser.runtime.sendMessage(mensaje);
+      return esVeredictoRespuesta(bruto) ? bruto.verdict : SIN_RESPUESTA;
     };
-    const bruto: unknown = await browser.runtime.sendMessage(mensaje);
-    // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
-    const verdict: Verdict = esVeredictoRespuesta(bruto)
-      ? bruto.verdict
-      : {
-          kind: 'evidencia-insuficiente',
-          resueltas: [],
-          sinResolver: [],
-          dimensionesVacias: [],
-          motivo: 'No se recibio una respuesta valida del motor de riesgo.',
-        };
 
     let root: Root | undefined;
     const ui = await createShadowRootUi(ctx, {
-      name: 'scamshield-panel',
-      position: 'overlay',
-      anchor: 'body',
+      name: 'scamshield-badge',
+      position: ancla !== null ? 'inline' : 'overlay',
+      anchor: ancla ?? 'body',
+      append: 'first',
       onMount: (contenedor) => {
-        contenedor.style.position = 'fixed';
-        contenedor.style.top = '16px';
-        contenedor.style.right = '16px';
-        contenedor.style.zIndex = '2147483647';
+        if (ancla === null) {
+          // Sin anclaje reconocible, el badge no desaparece: se fija en una
+          // esquina. Una remaquetacion degrada la ubicacion, no la funcion.
+          contenedor.style.position = 'fixed';
+          contenedor.style.top = '16px';
+          contenedor.style.right = '16px';
+          contenedor.style.width = '320px';
+          contenedor.style.zIndex = '2147483647';
+        }
         root = createRoot(contenedor);
         root.render(
-          createElement(VerdictPanel, {
-            verdict,
-            features,
+          createElement(ScamShieldBadge, {
             plataforma: publicacion.plataforma,
-            onCerrar: () => {
-              ui.remove();
-            },
+            extraer: () => adapter.extraer(document),
+            evaluar,
           }),
         );
       },

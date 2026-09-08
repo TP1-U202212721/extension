@@ -59,3 +59,16 @@ export const primero = (doc: Document, cascada: readonly string[]): Element | nu
 };
 
 export const textoDe = (el: Element | null): string => el?.textContent.trim() ?? '';
+
+/**
+ * Anclaje del badge dentro de la ficha: la columna del buybox, arriba de los
+ * datos de envio. Cascada, como todo lo demas: si ninguno matchea, el content
+ * script cae a una posicion fija.
+ */
+export const ANCLA_BADGE: readonly string[] = [
+  '.ui-pdp-container__col-right .ui-pdp-payment',
+  '.ui-pdp-container__col-right form',
+  '#buybox-form',
+  '.ui-pdp-buybox',
+  '.ui-pdp-container__col-right',
+];

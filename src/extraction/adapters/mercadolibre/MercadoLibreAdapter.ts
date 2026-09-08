@@ -5,7 +5,7 @@ import {
   type Ordinal,
 } from '../../../domain/features.js';
 import type { MarketplaceAdapter, Publicacion } from '../../MarketplaceAdapter.js';
-import { primero, SELECTORS, textoDe } from './selectors.js';
+import { ANCLA_BADGE, primero, SELECTORS, textoDe } from './selectors.js';
 
 /**
  * MLA123456789, MPE123456789, y la variante de catalogo con U intercalada:
@@ -51,6 +51,10 @@ export class MercadoLibreAdapter implements MarketplaceAdapter {
     if (m === null) return null;
     // Se normaliza sin el guion: /up/MPEU3173976853 y /MPE-123456789 conviven.
     return { plataforma: this.plataforma, publicacionId: m[0].replace('-', '') };
+  }
+
+  anclaBadge(doc: Document): Element | null {
+    return primero(doc, ANCLA_BADGE);
   }
 
   /**

@@ -10,5 +10,5 @@
     "jsx": "react-jsx",
     "types": ["vitest/globals"]
   },
-  "include": ["src", "tests", "wxt.config.ts", "vitest.config.ts"]
+  "include": ["src", "tests", "wxt.config.ts", "vitest.config.ts", "web-ext.config.ts"]
 }

@@ -158,3 +158,17 @@ describe('MercadoLibreAdapter · ids de publicacion', () => {
     expect(adapter.reconoce(new URL(href))).toBe(true);
   });
 });
+
+describe('MercadoLibreAdapter · anclaje del badge', () => {
+  it('encuentra la columna del buybox', () => {
+    const doc = new DOMParser().parseFromString(
+      '<html><body><div class="ui-pdp-container__col-right"><form></form></div></body></html>',
+      'text/html',
+    );
+    expect(adapter.anclaBadge(doc)).not.toBeNull();
+  });
+
+  it('devuelve null si la maquetacion cambio, para que el badge caiga a posicion fija', () => {
+    expect(adapter.anclaBadge(cargar('ficha-degradada.html'))).toBeNull();
+  });
+});

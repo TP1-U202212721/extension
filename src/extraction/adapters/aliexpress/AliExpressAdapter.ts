@@ -23,6 +23,10 @@ export class AliExpressAdapter implements MarketplaceAdapter {
     return this.reconoce(url) ? { plataforma: this.plataforma, publicacionId: url.pathname } : null;
   }
 
+  anclaBadge(_doc: Document): Element | null {
+    return null;
+  }
+
   extraer(_doc: Document): FeatureSet {
     return {
       proteccionDePago: indeterminado(PENDIENTE),

@@ -25,4 +25,10 @@ export interface MarketplaceAdapter {
   identificar(url: URL): Publicacion | null;
   /** Extrae solo las caracteristicas de cliente; las de backend quedan indeterminadas. */
   extraer(doc: Document): FeatureSet;
+  /**
+   * Donde insertar el badge dentro de la pagina. Devuelve null si no encuentra
+   * un anclaje reconocible; en ese caso el content script lo fija en una esquina
+   * para que la extension nunca quede invisible por un cambio de maquetacion.
+   */
+  anclaBadge(doc: Document): Element | null;
 }
