@@ -86,12 +86,32 @@ export type Ordinal = 0 | 1 | 2 | 3;
  */
 export type Veracidad = 1 | 2 | 3 | 4 | 5;
 
+/**
+ * Escala del analizador de reputacion del backend
+ * (`POST /SellerReputation/Estimate`). Sustituye al antiguo binario
+ * `vendedor_reconocido`, que colapsaba en un mismo 0 al vendedor verificado sin
+ * distintivo y al vendedor del que no se pudo verificar nada.
+ *
+ * 1 mala, 2 debil, 3 SIN VERIFICAR, 4 solida, 5 trayectoria establecida.
+ */
+export type Reputacion = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Escala del analizador de autenticidad de resenas
+ * (`POST /ReviewAnalysis/Authenticity`). No es una proporcion: la proporcion es
+ * el insumo, y el nivel 3 no es alcanzable desde una medicion, esta reservado
+ * para "no hay evidencia".
+ *
+ * 1 no autenticas, 2 muchas senales, 3 SIN EVIDENCIA, 4 probablemente
+ * autenticas, 5 autenticas.
+ */
+export type Autenticidad = 1 | 2 | 3 | 4 | 5;
+
 export interface FeatureSet {
   readonly proteccionDePago: FeatureValue<ProteccionDePago>;
   readonly veracidadDeDominio: FeatureValue<Veracidad>;
-  readonly reputacionDelVendedor: FeatureValue<Ordinal>;
-  /** Proporcion estimada de resenas artificiales, 0.0 - 1.0. */
-  readonly autenticidadDeResenas: FeatureValue<number>;
+  readonly reputacionDelVendedor: FeatureValue<Reputacion>;
+  readonly autenticidadDeResenas: FeatureValue<Autenticidad>;
   /** Puntuacion continua 0.0 - 5.0. */
   readonly puntuacionDelProducto: FeatureValue<number>;
   readonly presenciaDeResenas: FeatureValue<boolean>;

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config.js';
+import { API_BASE_URL } from '../api.js';
 import {
   conocido,
   indeterminado,
@@ -53,8 +53,8 @@ const TODO_INDETERMINADO = (motivo: string): FeatureSet => ({
   presenciaDeResenas: indeterminado(motivo),
   politicasDeGarantia: indeterminado(motivo),
   volumenDeVentas: indeterminado(motivo),
-  reputacionDelVendedor: indeterminado(motivo),
-  autenticidadDeResenas: indeterminado(motivo),
+  reputacionDelVendedor: indeterminado('La resuelve el analizador de reputacion del vendedor.'),
+  autenticidadDeResenas: indeterminado('La resuelve el analizador de autenticidad de resenas.'),
   veracidadDeDominio: indeterminado('La resuelve el analizador de dominio.'),
 });
 
@@ -234,23 +234,21 @@ const mapear = (item: Record<string, unknown>): FeatureSet => {
       (n) => `La ficha declara aproximadamente ${String(n)} ventas.`,
     ),
 
-    reputacionDelVendedor: cruzar<Ordinal>(
-      s.get('vendedor_reconocido'),
-      num(f, 'vendedor_reconocido'),
-      aOrdinal,
-      (n) =>
-        n >= 1
-          ? 'La ficha del vendedor muestra el distintivo de lider.'
-          : 'La ficha del vendedor no muestra el distintivo de lider.',
+    /**
+     * NO se deriva del binario `vendedor_reconocido` del documento.
+     *
+     * La escala nueva tiene cinco niveles y el 3 significa "sin verificar". El
+     * propio analizador del backend deja en 3 por cobertura baja a un vendedor
+     * del que solo se conoce el distintivo, asi que traducir aqui ese 0/1 a un
+     * nivel seria inventar evidencia que nadie midio. La resuelve
+     * /SellerReputation/Estimate (PR 10, sin mergear).
+     */
+    reputacionDelVendedor: indeterminado(
+      'La resuelve el analizador de reputacion del vendedor.',
     ),
 
-    // Siempre diferida (status 4): la calcula el modelo de resenas, que no existe.
-    autenticidadDeResenas: cruzar<number>(
-      s.get('porcentaje_reseñas_falsas'),
-      num(f, 'porcentaje_reseñas_falsas'),
-      (n) => n,
-      (n) => `Se estima un ${String(Math.round(n * 100))}% de resenas artificiales.`,
-    ),
+    /** Siempre diferida en el documento: la resuelve /ReviewAnalysis/Authenticity. */
+    autenticidadDeResenas: indeterminado('La resuelve el analizador de autenticidad de resenas.'),
 
     veracidadDeDominio: indeterminado('La resuelve el analizador de dominio.'),
   };

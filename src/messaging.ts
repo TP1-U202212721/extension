@@ -1,7 +1,6 @@
 import type { FeatureSet } from './domain/features.js';
 import type { Verdict } from './domain/verdict.js';
-import type { DetalleDominio } from './transport/DomainVeracityClient.js';
-import type { DetalleDocumento } from './transport/DocumentAnalysisClient.js';
+import type { Detalles } from './transport/RiskEngineClient.js';
 
 /**
  * Contrato entre el content script y el background.
@@ -28,10 +27,8 @@ export interface VeredictoRespuesta {
   readonly verdict: Verdict;
   /** Caracteristicas sobre las que se calculo el veredicto. */
   readonly features: FeatureSet;
-  /** Senales del analizador de dominio, para la presentacion explicativa. */
-  readonly dominio: DetalleDominio | null;
-  /** Cobertura y metadatos del analisis del documento. */
-  readonly documento: DetalleDocumento | null;
+  /** Evidencia de cada analizador, para la presentacion explicativa. */
+  readonly detalles: Detalles;
 }
 
 /** El motor exige sesion y no hay ninguna activa. */

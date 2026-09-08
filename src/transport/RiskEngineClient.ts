@@ -1,26 +1,39 @@
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
+import type { DetalleDominio } from './DomainVeracityClient.js';
+import type { DetalleDocumento } from './DocumentAnalysisClient.js';
+import type { DetalleVendedor } from './SellerReputationClient.js';
+import type { DetalleResenas } from './ReviewAnalysisClient.js';
 
 export interface EvaluacionSolicitud {
   readonly plataforma: string;
-  /** Solo el identificador de la publicacion, nunca la URL completa ni el HTML. */
   readonly publicacionId: string;
-  readonly features: FeatureSet;
+  /** URL que el comprador ya tiene abierta. */
+  readonly url: string;
+  /** El documento que el navegador YA renderizo. Ver docs/adr/0004. */
+  readonly html: string;
+}
+
+/** Evidencia que acompana al veredicto, para la presentacion explicativa. */
+export interface Detalles {
+  readonly documento: DetalleDocumento | null;
+  readonly dominio: DetalleDominio | null;
+  readonly vendedor: DetalleVendedor | null;
+  readonly resenas: DetalleResenas | null;
 }
 
 /**
  * Resultado de una evaluacion.
  *
  * Devuelve el veredicto Y el conjunto de caracteristicas sobre el que se
- * calculo. No es redundante: el motor puede resolver caracteristicas que el
- * cliente no pudo, y la presentacion tiene que mostrar exactamente lo que
- * sustenta el veredicto. Si mostrara las del cliente y el veredicto viniera de
- * otras, el panel podria decir "riesgo bajo" junto a seis caracteristicas sin
- * verificar, que es precisamente lo que este diseno debe impedir.
+ * calculo. No es redundante: si la presentacion mostrara unas caracteristicas y
+ * el veredicto viniera de otras, el panel podria decir "riesgo bajo" junto a
+ * seis caracteristicas sin verificar, que es justo lo que este diseno impide.
  */
 export interface Evaluacion {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
+  readonly detalles: Detalles;
 }
 
 /**
@@ -31,3 +44,18 @@ export interface RiskEngineClient {
   readonly id: string;
   evaluar(solicitud: EvaluacionSolicitud): Promise<Evaluacion>;
 }
+
+/** Se lanza cuando el motor exige sesion y no hay una activa. */
+export class SesionRequeridaError extends Error {
+  constructor() {
+    super('El motor de riesgo requiere una sesion iniciada.');
+    this.name = 'SesionRequeridaError';
+  }
+}
+
+export const SIN_DETALLES: Detalles = {
+  documento: null,
+  dominio: null,
+  vendedor: null,
+  resenas: null,
+};

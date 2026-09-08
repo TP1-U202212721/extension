@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config.js';
+import { API_BASE_URL } from '../api.js';
 import { conocido, indeterminado, type FeatureValue, type Veracidad } from '../domain/features.js';
 
 /** Una senal del analizador, tal como la devuelve el backend. */

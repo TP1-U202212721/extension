@@ -7,30 +7,24 @@ import {
   type FeatureSet,
 } from '../domain/features.js';
 import { ThresholdPolicy } from '../domain/policy/ThresholdPolicy.js';
-import type { Evaluacion, EvaluacionSolicitud, RiskEngineClient } from './RiskEngineClient.js';
+import {
+  SIN_DETALLES,
+  type Evaluacion,
+  type EvaluacionSolicitud,
+  type RiskEngineClient,
+} from './RiskEngineClient.js';
 
 export type Escenario = 'alto' | 'moderado' | 'bajo' | 'evidencia-insuficiente';
 
 /**
- * Motor simulado.
+ * Motor simulado. YA NO ES EL CAMINO POR DEFECTO: existe para desarrollar sin
+ * backend y para maquetar los cuatro desenlaces (ver src/config.ts).
  *
- * Por defecto NO inventa valores: deja sin resolver las tres caracteristicas
- * que corresponden al backend, porque ese backend no existe todavia. El
- * resultado natural es `evidencia-insuficiente`, que es la respuesta honesta.
- *
- * Rellenarlas con valores favorables producia "riesgo bajo" a partir de casi
- * ninguna evidencia: exactamente el fallo que el modelo de tres estados existe
- * para impedir. Los escenarios forzados siguen disponibles para maquetar la UI,
- * pero hay que pedirlos explicitamente.
- *
- * veracidadDeDominio ya NO se simula: la resuelve el background contra
- * POST /api/v1/DomainAnalysis/Veracity antes de llamar al motor.
- *
- * TODO(backend): reputacionDelVendedor requiere el historial agregado del
- * vendedor. Hoy solo existe GET /api/v1/Seller, que devuelve un riskLevel ya
- * calculado, no una reputacion.
- * TODO(backend): autenticidadDeResenas requiere DistilBERT. El servicio existe
- * (POST /predict) pero cuelga del backend, no es accesible desde la extension.
+ * Sin escenario forzado NO inventa nada: no tiene de donde leer el documento,
+ * asi que deja todo indeterminado y la politica se abstiene. Rellenarlo con
+ * valores favorables producia "riesgo bajo" a partir de casi ninguna evidencia,
+ * que es exactamente el fallo que el modelo de tres estados existe para
+ * impedir.
  */
 export class MockRiskEngineClient implements RiskEngineClient {
   readonly id = 'mock';
@@ -42,25 +36,27 @@ export class MockRiskEngineClient implements RiskEngineClient {
     this.#escenario = escenario;
   }
 
-  evaluar(solicitud: EvaluacionSolicitud): Promise<Evaluacion> {
-    if (this.#escenario !== undefined) {
-      return Promise.resolve(this.#forzar(this.#escenario, solicitud.features));
-    }
-    // Se decide sobre las caracteristicas tal como llegaron: las de backend
-    // quedan indeterminadas y la politica se abstiene.
-    return Promise.resolve({
-      verdict: this.#policy.decidir(solicitud.features),
-      features: solicitud.features,
-    });
+  evaluar(_solicitud: EvaluacionSolicitud): Promise<Evaluacion> {
+    return Promise.resolve(this.#forzar(this.#escenario ?? 'evidencia-insuficiente', VACIO));
   }
 
-  /** Solo para maquetar la UI: rellena el backend con valores de ejemplo. */
+  /** Maqueta un desenlace concreto, para la UI del popup. */
+  simular(escenario: Escenario): Evaluacion {
+    return this.#forzar(escenario, VACIO);
+  }
+
+  /** Solo para maquetar la UI: rellena con valores de ejemplo. */
   #conBackendDeEjemplo(f: FeatureSet): FeatureSet {
     return {
       ...f,
+      proteccionDePago: conocido('declarada', 'Escenario de prueba: compra protegida.'),
+      puntuacionDelProducto: conocido(4.8, 'Escenario de prueba: 4.8 sobre 5.'),
+      presenciaDeResenas: conocido(true, 'Escenario de prueba: la ficha publica opiniones.'),
+      politicasDeGarantia: conocido(1, 'Escenario de prueba: garantia declarada.'),
+      volumenDeVentas: conocido(500, 'Escenario de prueba: 500 ventas.'),
       veracidadDeDominio: conocido(5, 'Escenario de prueba: el dominio coincide con la plataforma.'),
-      reputacionDelVendedor: conocido(2, 'Escenario de prueba: historial del vendedor.'),
-      autenticidadDeResenas: conocido(0.18, 'Escenario de prueba: 18% con indicios de ser falsas.'),
+      reputacionDelVendedor: conocido(5, 'Escenario de prueba: trayectoria establecida.'),
+      autenticidadDeResenas: conocido(5, 'Escenario de prueba: resenas autenticas.'),
     };
   }
 
@@ -69,7 +65,7 @@ export class MockRiskEngineClient implements RiskEngineClient {
       const vacio: FeatureSet = Object.fromEntries(
         FEATURE_IDS.map((id) => [id, indeterminado('Escenario de prueba: sin evidencia.')]),
       ) as unknown as FeatureSet;
-      return { verdict: this.#policy.decidir(vacio), features: vacio };
+      return { verdict: this.#policy.decidir(vacio), features: vacio, detalles: SIN_DETALLES };
     }
 
     const base = this.#conBackendDeEjemplo(f);
@@ -82,6 +78,12 @@ export class MockRiskEngineClient implements RiskEngineClient {
         sinResolver: sinResolver(base),
       },
       features: base,
+      detalles: SIN_DETALLES,
     };
   }
 }
+
+/** Punto de partida de los escenarios: nada leido de ninguna pagina. */
+const VACIO: FeatureSet = Object.fromEntries(
+  FEATURE_IDS.map((id) => [id, indeterminado('Escenario de prueba: sin evidencia.')]),
+) as unknown as FeatureSet;

@@ -3,8 +3,7 @@ import { Shield, ShieldAlert, ShieldCheck, ShieldQuestion, Loader2, LogIn } from
 import { URL_REGISTRO } from '../auth/sesion.js';
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
-import type { DetalleDominio } from '../transport/DomainVeracityClient.js';
-import type { DetalleDocumento } from '../transport/DocumentAnalysisClient.js';
+import type { Detalles } from '../transport/RiskEngineClient.js';
 import { COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 import { VerdictPanel } from './VerdictPanel.js';
 
@@ -16,8 +15,7 @@ type Estado =
       readonly fase: 'listo';
       readonly verdict: Verdict;
       readonly features: FeatureSet;
-      readonly dominio: DetalleDominio | null;
-      readonly documento: DetalleDocumento | null;
+      readonly detalles: Detalles;
     };
 
 interface Props {
@@ -26,8 +24,7 @@ interface Props {
   readonly evaluar: () => Promise<{
     verdict: Verdict;
     features: FeatureSet;
-    dominio: DetalleDominio | null;
-    documento: DetalleDocumento | null;
+    detalles: Detalles;
   } | null>;
 }
 
@@ -56,13 +53,7 @@ export function ScamShieldBadge({ plataforma, evaluar }: Props) {
         setAbierto(true);
         return;
       }
-      setEstado({
-        fase: 'listo',
-        verdict: r.verdict,
-        features: r.features,
-        dominio: r.dominio,
-        documento: r.documento,
-      });
+      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles });
       setAbierto(true);
     });
   };
@@ -144,8 +135,7 @@ export function ScamShieldBadge({ plataforma, evaluar }: Props) {
           <VerdictPanel
             verdict={estado.verdict}
             features={estado.features}
-            dominio={estado.dominio}
-            documento={estado.documento}
+            detalles={estado.detalles}
             plataforma={plataforma}
             onCerrar={() => {
               setAbierto(false);

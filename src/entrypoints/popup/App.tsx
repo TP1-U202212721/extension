@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { obtenerSesion, type Sesion } from '../../auth/sesion.js';
 import { PanelSesion } from '../../ui/PanelSesion.js';
-import { conocido, indeterminado, FEATURE_IDS, type FeatureSet } from '../../domain/features.js';
 import { MockRiskEngineClient, type Escenario } from '../../transport/MockRiskEngineClient.js';
 import { VerdictPanel } from '../../ui/VerdictPanel.js';
-import type { Verdict } from '../../domain/verdict.js';
+import type { Evaluacion } from '../../transport/RiskEngineClient.js';
 
 const ESCENARIOS: readonly { readonly id: Escenario; readonly etiqueta: string }[] = [
   { id: 'bajo', etiqueta: 'Riesgo bajo' },
@@ -13,23 +12,6 @@ const ESCENARIOS: readonly { readonly id: Escenario; readonly etiqueta: string }
   { id: 'evidencia-insuficiente', etiqueta: 'Sin evidencia' },
 ];
 
-const conCliente = (): FeatureSet =>
-  ({
-    ...Object.fromEntries(FEATURE_IDS.map((id) => [id, indeterminado('sin evidencia')])),
-    proteccionDePago: conocido('declarada', 'La publicacion enlaza a la compra protegida.'),
-    puntuacionDelProducto: conocido(4.8, 'Puntuacion promedio de 4.8 sobre 5 segun la pagina.'),
-    presenciaDeResenas: conocido(true, 'La publicacion declara 1250 opiniones.'),
-    politicasDeGarantia: conocido(2, 'La publicacion declara garantia de fabrica: 12 meses.'),
-    volumenDeVentas: conocido(500, 'La publicacion declara aproximadamente 500 ventas.'),
-    veracidadDeDominio: conocido(5, 'El dominio corresponde a la plataforma declarada.'),
-    reputacionDelVendedor: conocido(2, 'Reputacion derivada del historial del vendedor.'),
-    autenticidadDeResenas: conocido(0.18, 'El 18% de las resenas presenta indicios de ser falsa.'),
-  }) as unknown as FeatureSet;
-
-const sinEvidencia = (): FeatureSet =>
-  Object.fromEntries(
-    FEATURE_IDS.map((id) => [id, indeterminado('No se pudo leer de la pagina.')]),
-  ) as unknown as FeatureSet;
 
 /**
  * Maqueta de los cuatro desenlaces alimentada por el motor simulado, para poder
@@ -51,23 +33,12 @@ export function App() {
       vigente = false;
     };
   }, []);
-  const [evaluacion, setEvaluacion] = useState<{
-    verdict: Verdict;
-    features: FeatureSet;
-  } | null>(null);
+  const [evaluacion, setEvaluacion] = useState<Evaluacion | null>(null);
 
-  const features = escenario === 'evidencia-insuficiente' ? sinEvidencia() : conCliente();
-
+  // La maqueta usa el motor simulado a proposito: no consulta al backend ni
+  // depende de que haya una publicacion abierta.
   useEffect(() => {
-    let vigente = true;
-    void new MockRiskEngineClient(escenario)
-      .evaluar({ plataforma: 'Mercado Libre', publicacionId: 'MPEU3173976853', features })
-      .then((r) => {
-        if (vigente) setEvaluacion(r);
-      });
-    return () => {
-      vigente = false;
-    };
+    setEvaluacion(new MockRiskEngineClient().simular(escenario));
   }, [escenario]);
 
   return (
@@ -110,6 +81,7 @@ export function App() {
         <VerdictPanel
           verdict={evaluacion.verdict}
           features={evaluacion.features}
+          detalles={evaluacion.detalles}
           plataforma="Mercado Libre"
         />
       )}

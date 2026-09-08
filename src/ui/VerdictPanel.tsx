@@ -8,7 +8,7 @@ import {
 } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio, SenalDominio } from '../transport/DomainVeracityClient.js';
-import type { DetalleDocumento } from '../transport/DocumentAnalysisClient.js';
+import type { Detalles } from '../transport/RiskEngineClient.js';
 import { AVISO, COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 
 const iconoDe = (clave: keyof typeof ETIQUETA_DESENLACE) => {
@@ -21,10 +21,8 @@ interface Props {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
   readonly plataforma: string;
-  /** Senales del analizador de dominio del backend, si respondio. */
-  readonly dominio?: DetalleDominio | null;
-  /** Metadatos del analisis del documento, si respondio. */
-  readonly documento?: DetalleDocumento | null;
+  /** Evidencia de cada analizador del backend, si respondieron. */
+  readonly detalles?: Detalles;
   readonly onCerrar?: () => void;
 }
 
@@ -33,7 +31,9 @@ interface Props {
  * se verifico, que quedo sin resolver y que acredita cada caracteristica. La
  * ausencia de informacion se muestra como tal, nunca como seguridad.
  */
-export function VerdictPanel({ verdict, features, plataforma, dominio, documento, onCerrar }: Props) {
+export function VerdictPanel({ verdict, features, plataforma, detalles, onCerrar }: Props) {
+  const documento = detalles?.documento ?? null;
+  const dominio = detalles?.dominio ?? null;
   const clave = verdict.kind === 'riesgo' ? verdict.nivel : 'evidencia-insuficiente';
   const Icono = iconoDe(clave);
 

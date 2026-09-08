@@ -9,14 +9,12 @@ import { esSesionRequerida, esVeredictoRespuesta, type EvaluarMensaje } from '..
 import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.js';
 import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
-import type { DetalleDominio } from '../transport/DomainVeracityClient.js';
-import type { DetalleDocumento } from '../transport/DocumentAnalysisClient.js';
+import { SIN_DETALLES, type Detalles } from '../transport/RiskEngineClient.js';
 
 interface Evaluado {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
-  readonly dominio: DetalleDominio | null;
-  readonly documento: DetalleDocumento | null;
+  readonly detalles: Detalles;
 }
 import '../ui/tailwind.css';
 
@@ -100,15 +98,10 @@ export default defineContentScript({
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
       if (esSesionRequerida(bruto)) return null;
       if (esVeredictoRespuesta(bruto)) {
-        return {
-          verdict: bruto.verdict,
-          features: bruto.features,
-          dominio: bruto.dominio,
-          documento: bruto.documento,
-        };
+        return { verdict: bruto.verdict, features: bruto.features, detalles: bruto.detalles };
       }
       // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
-      return { verdict: SIN_RESPUESTA, features: SIN_FEATURES, dominio: null, documento: null };
+      return { verdict: SIN_RESPUESTA, features: SIN_FEATURES, detalles: SIN_DETALLES };
     };
 
     let root: Root | undefined;

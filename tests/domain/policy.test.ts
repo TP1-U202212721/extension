@@ -31,8 +31,8 @@ const soloCliente = (): FeatureSet => ({
 const completo = (): FeatureSet => ({
   ...soloCliente(),
   veracidadDeDominio: conocido(5, 'dominio verificado'),
-  reputacionDelVendedor: conocido(2, 'historial del vendedor'),
-  autenticidadDeResenas: conocido(0.1, '10% con indicios'),
+  reputacionDelVendedor: conocido(5, 'historial del vendedor'),
+  autenticidadDeResenas: conocido(5, '10% con indicios'),
 });
 
 describe('las tres dimensiones', () => {
@@ -94,8 +94,8 @@ describe('ThresholdPolicy · niveles', () => {
       ...completo(),
       proteccionDePago: conocido('no-declarada', 'sin enlace'),
       veracidadDeDominio: conocido(1, 'dominio sospechoso'),
-      reputacionDelVendedor: conocido(0, 'sin historial'),
-      autenticidadDeResenas: conocido(0.9, '90% con indicios'),
+      reputacionDelVendedor: conocido(1, 'sin historial'),
+      autenticidadDeResenas: conocido(1, '90% con indicios'),
       puntuacionDelProducto: conocido(1.5, 'promedio bajo'),
       presenciaDeResenas: conocido(false, 'sin opiniones'),
       politicasDeGarantia: conocido(0, 'sin garantia'),
