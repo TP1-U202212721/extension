@@ -43,7 +43,9 @@ export default defineConfig({
     // `cookies` porque la extension inicia sesion por su cuenta contra la API,
     // ni host_permissions porque el backend responde con CORS abierto. Y no hay
     // ni un permiso sobre los marketplaces: no se les pide nada.
-    permissions: ['storage'],
+    // `identity` habilita launchWebAuthFlow para el inicio de sesion con
+    // Google; sigue sin haber ni un permiso sobre los marketplaces.
+    permissions: ['storage', 'identity'],
 
     ...(browser === 'firefox'
       ? {

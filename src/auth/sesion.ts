@@ -36,6 +36,13 @@ const emailDelToken = (token: string): string => {
   }
 };
 
+/** Persiste el JWT emitido por el backend. Lo comparten los dos caminos de login. */
+export const guardarSesion = async (token: string, emailPorDefecto = ''): Promise<Sesion> => {
+  const sesion: Sesion = { token, email: emailDelToken(token) || emailPorDefecto };
+  await browser.storage.local.set({ [CLAVE]: { token } });
+  return sesion;
+};
+
 export const obtenerSesion = async (): Promise<Sesion | null> => {
   try {
     const guardado = await browser.storage.local.get(CLAVE);
@@ -92,9 +99,7 @@ export const iniciarSesion = async (email: string, password: string): Promise<Re
     return { ok: false, mensaje: mensaje === '' ? 'No se pudo iniciar sesion.' : mensaje };
   }
 
-  const sesion: Sesion = { token, email: emailDelToken(token) || email };
-  await browser.storage.local.set({ [CLAVE]: { token } });
-  return { ok: true, sesion };
+  return { ok: true, sesion: await guardarSesion(token, email) };
 };
 
 export type ResultadoRegistro =

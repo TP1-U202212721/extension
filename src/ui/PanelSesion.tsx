@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LogOut, Loader2 } from 'lucide-react';
+import { googleDisponible, iniciarSesionConGoogle } from '../auth/google.js';
 import {
   APP_WEB,
   cerrarSesion,
@@ -100,6 +101,18 @@ export function PanelSesion({ sesion, onCambio }: Props) {
     });
   };
 
+  const conGoogle = (): void => {
+    if (enviando) return;
+    setError('');
+    setAviso('');
+    setEnviando(true);
+    void iniciarSesionConGoogle().then((r) => {
+      setEnviando(false);
+      if (r.ok) onCambio(r.sesion);
+      else setError(r.mensaje);
+    });
+  };
+
   const campo =
     'w-full rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-800 shadow-lg outline-none transition-all focus:ring-4 focus:ring-blue-300';
 
@@ -113,6 +126,25 @@ export function PanelSesion({ sesion, onCambio }: Props) {
           ? 'Accede para estimar el riesgo de una publicacion'
           : 'Registrate para protegerte de estafas digitales'}
       </p>
+
+      {googleDisponible() && (
+        <>
+          <button
+            type="button"
+            onClick={conGoogle}
+            disabled={enviando}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-bold text-slate-800 shadow-lg transition-all hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-xl active:translate-y-0 disabled:opacity-50"
+          >
+            <GoogleGlifo />
+            Continuar con Google
+          </button>
+          <div className="my-3 flex w-full items-center">
+            <div className="h-px flex-1 bg-blue-400" />
+            <span className="px-3 text-xs font-medium text-blue-200">O continua con</span>
+            <div className="h-px flex-1 bg-blue-400" />
+          </div>
+        </>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -235,5 +267,29 @@ export function PanelSesion({ sesion, onCambio }: Props) {
         </button>
       </p>
     </div>
+  );
+}
+
+/** Glifo oficial de Google, en SVG local: MV3 prohibe traerlo de un CDN. */
+function GoogleGlifo() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+      <path
+        fill="#4285F4"
+        d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7A21.99 21.99 0 0 0 24 46z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34A21.99 21.99 0 0 0 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"
+      />
+      <path
+        fill="#EA4335"
+        d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"
+      />
+    </svg>
   );
 }
