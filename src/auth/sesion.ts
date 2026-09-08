@@ -1,4 +1,5 @@
 import { browser } from 'wxt/browser';
+import { API_BASE_URL } from '../config.js';
 
 /** Cliente web de ScamShield. Es quien autentica; la extension solo lee el resultado. */
 export const APP_WEB = 'https://scamshield.ryzeon.dev';
@@ -105,4 +106,38 @@ export const cerrarSesion = async (): Promise<void> => {
     /* sin permiso concedido; la copia local igual se borra */
   }
   await browser.storage.local.remove(CLAVE);
+};
+
+export interface Perfil {
+  readonly id: number;
+  readonly username: string;
+  readonly fullName: string;
+  readonly email: string;
+}
+
+/**
+ * Perfil del comprador: GET /api/v1/Profile/{email}, el mismo que consume la
+ * pantalla "Mi perfil" del cliente web. Devuelve null ante cualquier fallo; el
+ * popup cae entonces al correo del token, que siempre esta disponible.
+ */
+export const obtenerPerfil = async (email: string, token: string): Promise<Perfil | null> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/Profile/${encodeURIComponent(email)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const cuerpo: unknown = await res.json();
+    const sobre = typeof cuerpo === 'object' && cuerpo !== null ? (cuerpo as Record<string, unknown>) : {};
+    const item = sobre['item'];
+    if (!res.ok || typeof item !== 'object' || item === null) return null;
+
+    const p = item as Record<string, unknown>;
+    return {
+      id: typeof p['id'] === 'number' ? p['id'] : 0,
+      username: typeof p['username'] === 'string' ? p['username'] : '',
+      fullName: typeof p['fullName'] === 'string' ? p['fullName'] : '',
+      email: typeof p['email'] === 'string' ? p['email'] : email,
+    };
+  } catch {
+    return null;
+  }
 };

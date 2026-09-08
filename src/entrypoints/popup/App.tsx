@@ -77,11 +77,9 @@ export function App() {
         <span className="text-xs text-slate-500">Estima el riesgo antes de pagar</span>
       </header>
 
-      {!cargandoSesion && (
-        <div className="mb-3">
-          <PanelSesion sesion={sesion} onCambio={setSesion} />
-        </div>
-      )}
+      <div className="mb-3">
+        <PanelSesion sesion={sesion} cargando={cargandoSesion} onCambio={setSesion} />
+      </div>
 
       {/* Sin sesion no hay reporte, asi que tampoco se muestra su maqueta. */}
       {sesion !== null && (

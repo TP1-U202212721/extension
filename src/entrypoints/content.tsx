@@ -27,11 +27,23 @@ const SIN_RESPUESTA: Verdict = {
 };
 
 export default defineContentScript({
+  // Los dominios por pais son distintos sitios para el navegador, asi que hay
+  // que enumerarlos: `*.amazon.*` no es un patron valido en un manifiesto.
   matches: [
     '*://*.mercadolibre.com.pe/*',
+    '*://*.mercadolibre.com.ar/*',
+    '*://*.mercadolibre.com.mx/*',
+    '*://*.mercadolibre.cl/*',
+    '*://*.mercadolibre.com.co/*',
     '*://*.mercadolibre.com/*',
     '*://*.amazon.com/*',
+    '*://*.amazon.es/*',
+    '*://*.amazon.com.mx/*',
+    '*://*.amazon.com.br/*',
     '*://*.aliexpress.com/*',
+    '*://*.aliexpress.us/*',
+    '*://*.ebay.com/*',
+    '*://*.ebay.es/*',
   ],
   cssInjectionMode: 'ui',
   runAt: 'document_idle',

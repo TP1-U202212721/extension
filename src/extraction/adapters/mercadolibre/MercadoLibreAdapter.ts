@@ -9,7 +9,7 @@ import type {
   Publicacion,
   TarjetaListado,
 } from '../../MarketplaceAdapter.js';
-import { leerProducto } from './jsonLd.js';
+import { leerProducto } from '../../jsonLd.js';
 import {
   ANCLA_BADGE,
   TARJETAS,

@@ -1,11 +1,12 @@
 /**
- * Lectura de los datos estructurados schema.org que MercadoLibre embebe en la
- * propia ficha.
+ * Lectura de los datos estructurados schema.org que las plataformas embeben en
+ * la propia ficha. Lo usan MercadoLibre, eBay y AliExpress; Amazon no.
  *
  * Se prefieren a los selectores CSS por una razon concreta: el JSON-LD es un
  * contrato publico que la plataforma mantiene para los buscadores, mientras que
- * las clases CSS cambian sin aviso en cada remaquetacion. Sigue siendo lectura
- * del documento que el navegador ya renderizo: no se pide nada.
+ * las clases CSS cambian sin aviso en cada remaquetacion, y en AliExpress
+ * ademas llevan un hash generado en cada build. Sigue siendo lectura del
+ * documento que el navegador ya renderizo: no se pide nada.
  */
 
 export interface ProductoLd {
@@ -51,10 +52,17 @@ export const leerProducto = (doc: Document): ProductoLd | null => {
     }
 
     for (const nodo of candidatos(datos)) {
-      if (nodo['@type'] !== 'Product') continue;
+      const tipo = nodo['@type'];
+      const esProducto = Array.isArray(tipo)
+        ? tipo.includes('Product')
+        : tipo === 'Product';
+      if (!esProducto) continue;
 
       const rating = esObjeto(nodo['aggregateRating']) ? nodo['aggregateRating'] : {};
-      const offers = esObjeto(nodo['offers']) ? nodo['offers'] : {};
+      const crudo = nodo['offers'];
+      const offers = esObjeto(crudo)
+        ? crudo
+        : (Array.isArray(crudo) ? (crudo.find(esObjeto) ?? {}) : {});
 
       return {
         ratingValue: num(rating['ratingValue']),

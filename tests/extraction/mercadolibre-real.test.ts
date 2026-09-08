@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MercadoLibreAdapter } from '../../src/extraction/adapters/mercadolibre/MercadoLibreAdapter.js';
-import { leerProducto } from '../../src/extraction/adapters/mercadolibre/jsonLd.js';
+import { leerProducto } from '../../src/extraction/jsonLd.js';
 import { esConocida } from '../../src/domain/features.js';
 
 /**

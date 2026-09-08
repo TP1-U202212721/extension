@@ -73,16 +73,7 @@ export const SELECTORS = {
   ],
 } as const satisfies Record<string, readonly string[]>;
 
-/** Primer elemento que matchee en la cascada, o null. */
-export const primero = (doc: Document, cascada: readonly string[]): Element | null => {
-  for (const sel of cascada) {
-    const el = doc.querySelector(sel);
-    if (el !== null) return el;
-  }
-  return null;
-};
-
-export const textoDe = (el: Element | null): string => el?.textContent.trim() ?? '';
+export { primero, textoDe } from '../../dom.js';
 
 /**
  * Anclaje del badge dentro de la ficha: la columna del buybox, arriba de los
