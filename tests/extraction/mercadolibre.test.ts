@@ -172,3 +172,39 @@ describe('MercadoLibreAdapter · anclaje del badge', () => {
     expect(adapter.anclaBadge(cargar('ficha-degradada.html'))).toBeNull();
   });
 });
+
+describe('MercadoLibreAdapter · tarjetas de listado', () => {
+  const conTarjetas = (html: string): Document =>
+    new DOMParser().parseFromString(`<html><body>${html}</body></html>`, 'text/html');
+
+  it('encuentra las tarjetas que enlazan a una ficha', () => {
+    const doc = conTarjetas(`
+      <div class="poly-card"><a class="poly-component__title" href="/x/up/MPEU3173976853">A</a></div>
+      <div class="poly-card"><a class="poly-component__title" href="/y/up/MPEU9999999999">B</a></div>
+    `);
+    expect(adapter.tarjetas(doc)).toHaveLength(2);
+  });
+
+  it('ignora tarjetas sin enlace a una ficha reconocible', () => {
+    const doc = conTarjetas(`
+      <div class="poly-card"><a href="/ofertas">Ver ofertas</a></div>
+      <div class="poly-card"><span>Sin enlace</span></div>
+    `);
+    expect(adapter.tarjetas(doc)).toHaveLength(0);
+  });
+
+  it('no cuenta la misma tarjeta dos veces aunque matcheen varios selectores', () => {
+    const doc = conTarjetas(
+      '<li class="ui-search-layout__item poly-card"><a href="/x/up/MPEU3173976853">A</a></li>',
+    );
+    expect(adapter.tarjetas(doc)).toHaveLength(1);
+  });
+
+  it('de la tarjeta no se extrae ninguna caracteristica: solo el enlace', () => {
+    const doc = conTarjetas(
+      '<div class="poly-card"><a href="/x/up/MPEU3173976853">A</a></div>',
+    );
+    const t = adapter.tarjetas(doc)[0];
+    expect(Object.keys(t ?? {})).toEqual(['elemento', 'href']);
+  });
+});

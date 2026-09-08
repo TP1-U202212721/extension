@@ -4,8 +4,20 @@ import {
   type FeatureSet,
   type Ordinal,
 } from '../../../domain/features.js';
-import type { MarketplaceAdapter, Publicacion } from '../../MarketplaceAdapter.js';
-import { ANCLA_BADGE, primero, SELECTORS, textoDe } from './selectors.js';
+import type {
+  MarketplaceAdapter,
+  Publicacion,
+  TarjetaListado,
+} from '../../MarketplaceAdapter.js';
+import {
+  ANCLA_BADGE,
+  TARJETAS,
+  TARJETA_ENLACE,
+  primero,
+  primero2,
+  SELECTORS,
+  textoDe,
+} from './selectors.js';
 
 /**
  * MLA123456789, MPE123456789, y la variante de catalogo con U intercalada:
@@ -55,6 +67,27 @@ export class MercadoLibreAdapter implements MarketplaceAdapter {
 
   anclaBadge(doc: Document): Element | null {
     return primero(doc, ANCLA_BADGE);
+  }
+
+  tarjetas(doc: Document): readonly TarjetaListado[] {
+    const vistas = new Set<Element>();
+    const salida: TarjetaListado[] = [];
+
+    for (const sel of TARJETAS) {
+      for (const el of doc.querySelectorAll(sel)) {
+        if (vistas.has(el)) continue;
+        vistas.add(el);
+
+        const enlace = primero2(el, TARJETA_ENLACE);
+        const href = enlace?.getAttribute('href') ?? '';
+        // Sin un enlace a una ficha reconocible, la tarjeta se ignora: el badge
+        // solo tiene sentido si hay adonde ir.
+        if (href === '' || !ID_PUBLICACION.test(href)) continue;
+
+        salida.push({ elemento: el, href });
+      }
+    }
+    return salida;
   }
 
   /**

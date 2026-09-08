@@ -1,5 +1,9 @@
 import { indeterminado, type FeatureSet } from '../../../domain/features.js';
-import type { MarketplaceAdapter, Publicacion } from '../../MarketplaceAdapter.js';
+import type {
+  MarketplaceAdapter,
+  Publicacion,
+  TarjetaListado,
+} from '../../MarketplaceAdapter.js';
 
 const PENDIENTE = 'Adaptador de AliExpress aun no implementado.';
 
@@ -25,6 +29,10 @@ export class AliExpressAdapter implements MarketplaceAdapter {
 
   anclaBadge(_doc: Document): Element | null {
     return null;
+  }
+
+  tarjetas(_doc: Document): readonly TarjetaListado[] {
+    return [];
   }
 
   extraer(_doc: Document): FeatureSet {

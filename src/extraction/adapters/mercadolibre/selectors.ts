@@ -72,3 +72,34 @@ export const ANCLA_BADGE: readonly string[] = [
   '.ui-pdp-buybox',
   '.ui-pdp-container__col-right',
 ];
+
+/**
+ * Tarjetas de listado y de los carruseles de recomendaciones. Solo se usan para
+ * insertar un enlace a la ficha: de la tarjeta no se extrae ninguna
+ * caracteristica, porque no las tiene.
+ */
+export const TARJETAS: readonly string[] = [
+  '.poly-card',
+  '.ui-recommendations-card',
+  '.andes-card.ui-search-result',
+  'li.ui-search-layout__item',
+];
+
+/** Enlace a la ficha dentro de una tarjeta. */
+export const TARJETA_ENLACE: readonly string[] = [
+  'a.poly-component__title',
+  'a.ui-recommendations-card__link',
+  'a.ui-search-link',
+  'a[href*="/MPE"]',
+  'a[href*="/ML"]',
+  'a[href]',
+];
+
+/** Como `primero`, pero buscando dentro de un elemento y no del documento. */
+export const primero2 = (raiz: Element, cascada: readonly string[]): Element | null => {
+  for (const sel of cascada) {
+    const el = raiz.querySelector(sel);
+    if (el !== null) return el;
+  }
+  return null;
+};

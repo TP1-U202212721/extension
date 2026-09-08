@@ -6,6 +6,7 @@ import { createElement } from 'react';
 import { adapterPara } from '../extraction/registry.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import { esVeredictoRespuesta, type EvaluarMensaje } from '../messaging.js';
+import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.js';
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import '../ui/tailwind.css';
@@ -31,6 +32,26 @@ export default defineContentScript({
   async main(ctx) {
     const adapter = adapterPara(location.href);
     if (adapter === null) return;
+
+    // Tarjetas de listado y carruseles: un enlace por tarjeta, sin veredicto.
+    // Los carruseles se pueblan tarde, asi que se vuelve a recorrer cuando el
+    // DOM cambia. Solo se lee el documento ya renderizado; no se pide nada.
+    const marcarTarjetas = (): void => {
+      for (const t of adapter.tarjetas(document)) insertarBadgeTarjeta(t);
+    };
+    marcarTarjetas();
+
+    let pendiente = 0;
+    const observador = new MutationObserver(() => {
+      clearTimeout(pendiente);
+      pendiente = window.setTimeout(marcarTarjetas, 300);
+    });
+    observador.observe(document.body, { childList: true, subtree: true });
+    ctx.onInvalidated(() => {
+      observador.disconnect();
+      clearTimeout(pendiente);
+      limpiarBadgesTarjeta(document);
+    });
 
     const publicacion = adapter.identificar(new URL(location.href));
     if (publicacion === null) return;

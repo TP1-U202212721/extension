@@ -6,6 +6,21 @@ export interface Publicacion {
 }
 
 /**
+ * Una tarjeta de listado o carrusel dentro de una pagina.
+ *
+ * Las tarjetas NO traen las caracteristicas: solo imagen, titulo y precio. Por
+ * eso aqui nunca se emite un veredicto. El badge que se inserta es un enlace a
+ * la ficha: el comprador hace el clic y la navegacion es suya. Ir a buscar cada
+ * ficha para puntuar la tarjeta seria scraping, y esta prohibido.
+ */
+export interface TarjetaListado {
+  /** Nodo donde insertar el enlace. */
+  readonly elemento: Element;
+  /** Destino de la ficha, tal como ya figura en la pagina. */
+  readonly href: string;
+}
+
+/**
  * Puerto de extraccion. Una implementacion por marketplace.
  *
  * Contrato que toda implementacion debe cumplir:
@@ -31,4 +46,6 @@ export interface MarketplaceAdapter {
    * para que la extension nunca quede invisible por un cambio de maquetacion.
    */
   anclaBadge(doc: Document): Element | null;
+  /** Tarjetas de listado o carrusel presentes en la pagina. Vacio si no hay. */
+  tarjetas(doc: Document): readonly TarjetaListado[];
 }
