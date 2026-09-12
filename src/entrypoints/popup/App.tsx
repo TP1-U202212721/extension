@@ -1,26 +1,25 @@
 import { useEffect, useState } from 'react';
+import { browser } from 'wxt/browser';
 import { obtenerSesion, type Sesion } from '../../auth/sesion.js';
 import { PanelSesion } from '../../ui/PanelSesion.js';
-import { MockRiskEngineClient, type Escenario } from '../../transport/MockRiskEngineClient.js';
 import { VerdictPanel } from '../../ui/VerdictPanel.js';
 import type { Evaluacion } from '../../transport/RiskEngineClient.js';
 
-const ESCENARIOS: readonly { readonly id: Escenario; readonly etiqueta: string }[] = [
-  { id: 'bajo', etiqueta: 'Riesgo bajo' },
-  { id: 'moderado', etiqueta: 'Moderado' },
-  { id: 'alto', etiqueta: 'Riesgo alto' },
-  { id: 'evidencia-insuficiente', etiqueta: 'Sin evidencia' },
-];
-
+interface AnalisisAlmacenado extends Evaluacion {
+  readonly plataforma: string;
+  readonly publicacionId: string;
+  readonly timestamp: number;
+}
 
 /**
- * Maqueta de los cuatro desenlaces alimentada por el motor simulado, para poder
- * validarla con usuarios sin esperar al backend.
+ * Resultado real del analisis del motor de riesgo, almacenado por el content
+ * script cuando el comprador hace clic en el badge.
  */
 export function App() {
   const [sesion, setSesion] = useState<Sesion | null>(null);
   const [cargandoSesion, setCargandoSesion] = useState(true);
-  const [escenario, setEscenario] = useState<Escenario>('bajo');
+  const [analisis, setAnalisis] = useState<AnalisisAlmacenado | null>(null);
+  const [cargandoAnalisis, setCargandoAnalisis] = useState(true);
 
   useEffect(() => {
     let vigente = true;
@@ -33,13 +32,23 @@ export function App() {
       vigente = false;
     };
   }, []);
-  const [evaluacion, setEvaluacion] = useState<Evaluacion | null>(null);
 
-  // La maqueta usa el motor simulado a proposito: no consulta al backend ni
-  // depende de que haya una publicacion abierta.
+  // Leer el analisis real del storage del browser, usando la URL de la pestana activa.
   useEffect(() => {
-    setEvaluacion(new MockRiskEngineClient().simular(escenario));
-  }, [escenario]);
+    void (async () => {
+      const pestanas = await browser.tabs.query({ active: true, currentWindow: true });
+      const pestana = pestanas[0];
+      if (pestana === undefined || pestana.url === undefined) {
+        setCargandoAnalisis(false);
+        return;
+      }
+      const clave = `analisis:${pestana.url}`;
+      const datos = await browser.storage.local.get(clave);
+      const item = datos[clave] as AnalisisAlmacenado | undefined;
+      setAnalisis(item ?? null);
+      setCargandoAnalisis(false);
+    })();
+  }, []);
 
   return (
     <div className="w-[420px] p-3">
@@ -52,46 +61,47 @@ export function App() {
         <PanelSesion sesion={sesion} cargando={cargandoSesion} onCambio={setSesion} />
       </div>
 
-      {/* Sin sesion no hay reporte, asi que tampoco se muestra su maqueta. */}
       {sesion !== null && (
         <>
-      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-        Maqueta de los desenlaces
-      </p>
-      <div className="mb-3 flex gap-1 rounded-xl bg-slate-100 p-1">
-        {ESCENARIOS.map((e) => (
-          <button
-            key={e.id}
-            type="button"
-            onClick={() => {
-              setEscenario(e.id);
-            }}
-            className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
-              escenario === e.id
-                ? 'bg-white text-blue-700 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {e.etiqueta}
-          </button>
-        ))}
-      </div>
+          {cargandoAnalisis && (
+            <p className="text-center text-xs text-slate-500">Cargando analisis...</p>
+          )}
 
-      {evaluacion !== null && (
-        <VerdictPanel
-          verdict={evaluacion.verdict}
-          features={evaluacion.features}
-          detalles={evaluacion.detalles}
-          plataforma="Mercado Libre"
-        />
-      )}
+          {!cargandoAnalisis && analisis === null && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <p className="text-sm font-semibold text-slate-700">Sin analisis para esta pagina</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Abre una publicacion de un marketplace y haz clic en el badge de ScamShield para
+                analizarla.
+              </p>
+            </div>
+          )}
 
-      <p className="mt-2 text-center text-[10px] text-slate-400">
-        Maqueta con motor simulado. Los datos no provienen de un analisis real.
-      </p>
+          {!cargandoAnalisis && analisis !== null && (
+            <>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                Analisis de {analisis.plataforma}
+              </p>
+              <VerdictPanel
+                verdict={analisis.verdict}
+                features={analisis.features}
+                detalles={analisis.detalles}
+                plataforma={analisis.plataforma}
+              />
+              <p className="mt-2 text-center text-[10px] text-slate-400">
+                Analisis realizado el{' '}
+                {new Date(analisis.timestamp).toLocaleDateString('es-PE', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            </>
+          )}
         </>
       )}
     </div>
   );
 }
-

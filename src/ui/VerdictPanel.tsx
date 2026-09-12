@@ -164,8 +164,8 @@ function AnalisisDeDominio({ d }: { readonly d: DetalleDominio }) {
         <Dato titulo="Cobertura" valor={`${String(cobertura)}%`} />
       </dl>
 
-      <GrupoSenales titulo="Senales de riesgo" senales={d.riskSignals} />
-      <GrupoSenales titulo="Senales a favor" senales={d.trustSignals} />
+      <GrupoSenales titulo="Señales de riesgo" senales={d.riskSignals} />
+      <GrupoSenales titulo="Señales a favor" senales={d.trustSignals} />
       <GrupoSenales titulo="No se pudo comprobar" senales={d.unverifiedSignals} />
 
       {d.limitations.length > 0 && (

@@ -63,21 +63,11 @@ const senales = (v: unknown): readonly SenalDominio[] =>
 const esVeracidad = (n: number): n is Veracidad => Number.isInteger(n) && n >= 1 && n <= 5;
 
 /**
- * Traduce el veredicto del analizador a los tres estados del modelo.
- *
- * El punto delicado es el nivel 3, "sin evidencia suficiente": dentro de la
- * escala del backend significa dos cosas distintas segun la confianza. Con
- * confianza baja (1-2) es que no hubo con que evaluar, y eso es exactamente
- * `indeterminado`. Con confianza media o alta (3-4) es un valor observado que
- * dice "ni una cosa ni la otra", y eso SI es conocido. Colapsar los dos casos
- * inventaria evidencia en un sentido o la tiraria en el otro.
+ * Si el API devolvió un nivel válido (1-5), se considera una observación
+ * conocida. La confianza es información adicional que se muestra en el
+ * detalle, pero no invalida el resultado del análisis.
  */
 export const aFeature = (d: DetalleDominio): FeatureValue<Veracidad> => {
-  if (d.veracity === 3 && d.confidence <= 2) {
-    return indeterminado(
-      `No se pudo reunir evidencia suficiente sobre ${d.registrableDomain} (confianza ${d.confidenceLabel.toLowerCase()}).`,
-    );
-  }
   return conocido(d.veracity, d.summary);
 };
 

@@ -101,7 +101,21 @@ export default defineContentScript({
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
       if (esSesionRequerida(bruto)) return null;
       if (esVeredictoRespuesta(bruto)) {
-        return { verdict: bruto.verdict, features: bruto.features, detalles: bruto.detalles };
+        const resultado: Evaluado = {
+          verdict: bruto.verdict,
+          features: bruto.features,
+          detalles: bruto.detalles,
+        };
+        // Almacenar resultado en storage para que el popup pueda mostrarlo.
+        await browser.storage.local.set({
+          [`analisis:${location.href}`]: {
+            ...resultado,
+            plataforma: publicacion.plataforma,
+            publicacionId: publicacion.publicacionId,
+            timestamp: Date.now(),
+          },
+        });
+        return resultado;
       }
       // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
       return { verdict: SIN_RESPUESTA, features: SIN_FEATURES, detalles: SIN_DETALLES };

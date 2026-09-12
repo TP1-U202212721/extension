@@ -48,7 +48,7 @@ export default defineConfig({
     // duplicar el login dentro de la extension. Sigue sin haber ni un permiso
     // sobre los marketplaces: a ellos no se les pide absolutamente nada.
     permissions: ['storage', 'cookies'],
-    host_permissions: ['https://scamshield.ryzeon.dev/*'],
+    host_permissions: ['https://scamshield.ryzeon.dev/*', 'http://localhost:8081/*'],
 
     ...(browser === 'firefox'
       ? {

@@ -2,7 +2,7 @@ import { browser } from 'wxt/browser';
 import { API_BASE_URL } from '../api.js';
 
 /** Cliente web de ScamShield. Es quien autentica; la extension solo lee el resultado. */
-export const APP_WEB = 'https://scamshield.ryzeon.dev';
+export const APP_WEB = 'http://localhost:3002';
 export const HOST_APP = 'scamshield.ryzeon.dev';
 export const URL_LOGIN = `${APP_WEB}/login`;
 export const URL_REGISTRO = `${APP_WEB}/register`;

@@ -127,7 +127,7 @@ export function PanelSesion({ sesion, cargando, onCambio }: Props) {
       </button>
 
       <p className="mt-3 text-xs leading-snug text-blue-100">
-        Se abre scamshield.ryzeon.dev en una pestana. Tu contrasena la recibe el sitio de
+        Se abre scamshield.ryzeon.dev en una pestaña. Tu contraseña la recibe el sitio de
         ScamShield, nunca la extension.
       </p>
 
