@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../api.js';
+import { leerRespuesta, type Sobre } from './sobre.js';
 import {
   conocido,
   indeterminado,
@@ -34,15 +35,6 @@ export interface ResultadoDocumento {
 
 /** El presupuesto del analizador mas el margen de subir un documento de varios MB. */
 const TIMEOUT_MS = 20000;
-
-const esObjeto = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null;
-
-const num = (o: Record<string, unknown>, k: string): number | null =>
-  typeof o[k] === 'number' ? o[k] : null;
-
-const txt = (o: Record<string, unknown>, k: string): string =>
-  typeof o[k] === 'string' ? o[k] : '';
 
 /** Bytes UTF-8 reales del documento. `length` cuenta caracteres y enganaria. */
 export const bytesDe = (html: string): number => new Blob([html]).size;
@@ -149,12 +141,8 @@ export const analizarDocumento = async (
       signal: abortar.signal,
     });
 
-    const cuerpo: unknown = await res.json();
-    const sobre = esObjeto(cuerpo) ? cuerpo : {};
-    const item = sobre['item'];
-
-    if (!res.ok || sobre['isSuccess'] !== true || !esObjeto(item)) {
-      const mensaje = txt(sobre, 'message');
+    const { ok, item, mensaje } = leerRespuesta(await res.json(), res.ok);
+    if (!ok) {
       return {
         features: TODO_INDETERMINADO(
           mensaje === '' ? 'El analizador de documento no respondio.' : mensaje,
@@ -175,28 +163,29 @@ export const analizarDocumento = async (
   }
 };
 
-const estadosDe = (item: Record<string, unknown>): ReadonlyMap<string, Estado> => {
+const estadosDe = (item: Sobre): ReadonlyMap<string, Estado> => {
   const mapa = new Map<string, Estado>();
-  const crudo = item['featureStates'];
-  if (!Array.isArray(crudo)) return mapa;
-  for (const e of crudo) {
-    if (!esObjeto(e)) continue;
-    const nombre = txt(e, 'feature');
-    const status = num(e, 'status');
+  for (const e of item.lista('featureStates')) {
+    // `Feature`/`Status`/`Reason` son claves del sobre: tolerantes.
+    const nombre = e.txt('feature');
+    const status = e.num('status');
+    // El VALOR de `feature` es un dato en snake_case y se usa tal cual.
     if (nombre === '' || status === null) continue;
-    mapa.set(nombre, { status, reason: txt(e, 'reason') });
+    mapa.set(nombre, { status, reason: e.txt('reason') });
   }
   return mapa;
 };
 
-const mapear = (item: Record<string, unknown>): FeatureSet => {
-  const f = esObjeto(item['features']) ? item['features'] : {};
+const mapear = (item: Sobre): FeatureSet => {
+  // `features` es clave del sobre, pero lo que hay DENTRO son nombres de
+  // caracteristica en snake_case: datos. Por eso se leen con `exacto`.
+  const f = item.obj('features');
   const s = estadosDe(item);
 
   return {
     proteccionDePago: cruzar<ProteccionDePago>(
       s.get('medios_pago_reconocidos'),
-      num(f, 'medios_pago_reconocidos'),
+      valorExacto(f, 'medios_pago_reconocidos'),
       (n) => (n >= 1 ? 'declarada' : 'no-declarada'),
       (n) =>
         n >= 1
@@ -206,7 +195,7 @@ const mapear = (item: Record<string, unknown>): FeatureSet => {
 
     puntuacionDelProducto: cruzar<number>(
       s.get('puntuacion_producto'),
-      num(f, 'puntuacion_producto'),
+      valorExacto(f, 'puntuacion_producto'),
       (n) => n,
       (n) => `Puntuacion promedio de ${String(n)} sobre 5 segun la ficha.`,
     ),
@@ -215,21 +204,21 @@ const mapear = (item: Record<string, unknown>): FeatureSet => {
     // codificada al reves (0 = Tiene reseñas); esa inversion quedo corregida.
     presenciaDeResenas: cruzar<boolean>(
       s.get('tiene_reseñas'),
-      num(f, 'tiene_reseñas'),
+      valorExacto(f, 'tiene_reseñas'),
       (n) => n >= 1,
       (n) => (n >= 1 ? 'La ficha publica opiniones.' : 'El bloque de opiniones no tiene resenas.'),
     ),
 
     politicasDeGarantia: cruzar<Ordinal>(
       s.get('politicas_garantia'),
-      num(f, 'politicas_garantia'),
+      valorExacto(f, 'politicas_garantia'),
       aOrdinal,
       (n) => (n >= 1 ? 'La ficha declara garantia.' : 'La ficha no declara garantia.'),
     ),
 
     volumenDeVentas: cruzar<number>(
       s.get('productos_vendidos'),
-      num(f, 'productos_vendidos'),
+      valorExacto(f, 'productos_vendidos'),
       (n) => n,
       (n) => `La ficha declara aproximadamente ${String(n)} ventas.`,
     ),
@@ -254,13 +243,23 @@ const mapear = (item: Record<string, unknown>): FeatureSet => {
   };
 };
 
-const detalleDe = (item: Record<string, unknown>): DetalleDocumento => ({
-  plataforma: txt(item, 'platform'),
-  postTitle: txt(item, 'postTitle'),
-  seller: txt(item, 'seller'),
-  coverage: num(item, 'coverage') ?? 0,
-  reviewCount: num(item, 'reviewCount') ?? 0,
-  sinDeterminar: Array.isArray(item['undeterminedFeatures'])
-    ? item['undeterminedFeatures'].filter((x): x is string => typeof x === 'string')
-    : [],
+const detalleDe = (item: Sobre): DetalleDocumento => ({
+  plataforma: item.txt('platform'),
+  postTitle: item.txt('postTitle'),
+  seller: item.txt('seller'),
+  coverage: item.numOr('coverage', 0),
+  reviewCount: item.numOr('reviewCount', 0),
+  // Los valores de esta lista son nombres de caracteristica: se devuelven tal
+  // cual para que sigan coincidiendo con las claves de `features`.
+  sinDeterminar: item.cadenas('undeterminedFeatures'),
 });
+
+/**
+ * Valor de una caracteristica. Lectura EXACTA a proposito: aqui la clave es un
+ * dato (`vendedor_reconocido`, `porcentaje_reseñas_falsas`), no una clave del
+ * sobre, y normalizarla romperia su correspondencia con `featureStates`.
+ */
+const valorExacto = (f: Sobre, nombre: string): number | null => {
+  const v = f.exacto(nombre);
+  return typeof v === 'number' ? v : null;
+};

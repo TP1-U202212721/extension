@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../api.js';
+import { leerRespuesta, type Sobre } from './sobre.js';
 import { conocido, indeterminado, type FeatureValue, type Veracidad } from '../domain/features.js';
 
 /** Una senal del analizador, tal como la devuelve el backend. */
@@ -41,33 +42,36 @@ export interface ResultadoDominio {
  */
 const TIMEOUT_MS = 9000;
 
-const esObjeto = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null;
-
-const num = (o: Record<string, unknown>, k: string, pordefecto: number): number =>
-  typeof o[k] === 'number' ? o[k] : pordefecto;
-
-const txt = (o: Record<string, unknown>, k: string): string =>
-  typeof o[k] === 'string' ? o[k] : '';
-
-const senales = (v: unknown): readonly SenalDominio[] =>
-  Array.isArray(v)
-    ? v.filter(esObjeto).map((s) => ({
-        code: txt(s, 'code'),
-        familyLabel: txt(s, 'familyLabel'),
-        statusLabel: txt(s, 'statusLabel'),
-        explanation: txt(s, 'explanation'),
-      }))
-    : [];
+const senales = (item: Sobre, clave: string): readonly SenalDominio[] =>
+  item.lista(clave).map((s) => ({
+    code: s.txt('code'),
+    familyLabel: s.txt('familyLabel'),
+    statusLabel: s.txt('statusLabel'),
+    explanation: s.txt('explanation'),
+  }));
 
 const esVeracidad = (n: number): n is Veracidad => Number.isInteger(n) && n >= 1 && n <= 5;
 
 /**
- * Si el API devolvió un nivel válido (1-5), se considera una observación
- * conocida. La confianza es información adicional que se muestra en el
- * detalle, pero no invalida el resultado del análisis.
+ * Traduce el veredicto del analizador a los tres estados del modelo.
+ *
+ * El punto delicado es el nivel 3, "sin evidencia suficiente": dentro de la
+ * escala del backend significa dos cosas distintas segun la confianza. Con
+ * confianza baja (1-2) es que no hubo con que evaluar, y eso es exactamente
+ * `indeterminado`. Con confianza media o alta (3-4) es un valor observado que
+ * dice "ni una cosa ni la otra", y eso SI es conocido. Colapsar los dos casos
+ * inventaria evidencia en un sentido o la tiraria en el otro.
+ *
+ * Sin esta distincion, un dominio del que no se pudo verificar NADA cuenta como
+ * caracteristica resuelta, satisface por si solo la dimension "identidad del
+ * sitio" y desbloquea un veredicto que no tiene con que sostenerse.
  */
 export const aFeature = (d: DetalleDominio): FeatureValue<Veracidad> => {
+  if (d.veracity === 3 && d.confidence <= 2) {
+    return indeterminado(
+      `No se pudo reunir evidencia suficiente sobre ${d.registrableDomain} (confianza ${d.confidenceLabel.toLowerCase()}).`,
+    );
+  }
   return conocido(d.veracity, d.summary);
 };
 
@@ -97,12 +101,8 @@ export const consultarVeracidadDeDominio = async (
       signal: abortar.signal,
     });
 
-    const cuerpo: unknown = await res.json();
-    const sobre = esObjeto(cuerpo) ? cuerpo : {};
-    const item = sobre['item'];
-
-    if (!res.ok || sobre['isSuccess'] !== true || !esObjeto(item)) {
-      const mensaje = txt(sobre, 'message');
+    const { ok, item, mensaje } = leerRespuesta(await res.json(), res.ok);
+    if (!ok) {
       return {
         feature: indeterminado(
           mensaje === '' ? 'El analizador de dominio no respondio.' : mensaje,
@@ -111,7 +111,7 @@ export const consultarVeracidadDeDominio = async (
       };
     }
 
-    const veracity = num(item, 'veracity', 0);
+    const veracity = item.numOr('veracity', 0);
     if (!esVeracidad(veracity)) {
       return {
         feature: indeterminado('El analizador de dominio devolvio un nivel no reconocido.'),
@@ -120,21 +120,19 @@ export const consultarVeracidadDeDominio = async (
     }
 
     const detalle: DetalleDominio = {
-      host: txt(item, 'host'),
-      registrableDomain: txt(item, 'registrableDomain'),
+      host: item.txt('host'),
+      registrableDomain: item.txt('registrableDomain'),
       veracity,
-      veracityLabel: txt(item, 'veracityLabel'),
-      score: num(item, 'score', 0),
-      confidence: num(item, 'confidence', 0),
-      confidenceLabel: txt(item, 'confidenceLabel'),
-      coverage: num(item, 'coverage', 0),
-      summary: txt(item, 'summary'),
-      riskSignals: senales(item['riskSignals']),
-      trustSignals: senales(item['trustSignals']),
-      unverifiedSignals: senales(item['unverifiedSignals']),
-      limitations: Array.isArray(item['limitations'])
-        ? item['limitations'].filter((l): l is string => typeof l === 'string')
-        : [],
+      veracityLabel: item.txt('veracityLabel'),
+      score: item.numOr('score', 0),
+      confidence: item.numOr('confidence', 0),
+      confidenceLabel: item.txt('confidenceLabel'),
+      coverage: item.numOr('coverage', 0),
+      summary: item.txt('summary'),
+      riskSignals: senales(item, 'riskSignals'),
+      trustSignals: senales(item, 'trustSignals'),
+      unverifiedSignals: senales(item, 'unverifiedSignals'),
+      limitations: item.cadenas('limitations'),
     };
 
     return { feature: aFeature(detalle), detalle };

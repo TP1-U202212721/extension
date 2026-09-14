@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../api.js';
+import { leerRespuesta, type Sobre } from './sobre.js';
 import { conocido, indeterminado, type FeatureValue, type Reputacion } from '../domain/features.js';
 import { soloLoLeido, type DatosDelVendedor } from '../domain/insumos.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
@@ -41,21 +42,13 @@ export interface ResultadoVendedor {
 
 const TIMEOUT_MS = 9000;
 
-const esObjeto = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null;
-const num = (o: Record<string, unknown>, k: string, d: number): number =>
-  typeof o[k] === 'number' ? o[k] : d;
-const txt = (o: Record<string, unknown>, k: string): string =>
-  typeof o[k] === 'string' ? o[k] : '';
-const senales = (v: unknown): readonly SenalVendedor[] =>
-  Array.isArray(v)
-    ? v.filter(esObjeto).map((s) => ({
-        code: txt(s, 'code'),
-        familyLabel: txt(s, 'familyLabel'),
-        statusLabel: txt(s, 'statusLabel'),
-        explanation: txt(s, 'explanation'),
-      }))
-    : [];
+const senales = (item: Sobre, clave: string): readonly SenalVendedor[] =>
+  item.lista(clave).map((s) => ({
+    code: s.txt('code'),
+    familyLabel: s.txt('familyLabel'),
+    statusLabel: s.txt('statusLabel'),
+    explanation: s.txt('explanation'),
+  }));
 
 const esNivel = (n: number): n is Reputacion => Number.isInteger(n) && n >= 1 && n <= 5;
 
@@ -65,7 +58,6 @@ const esNivel = (n: number): n is Reputacion => Number.isInteger(n) && n >= 1 &&
  * observacion. Colapsar los dos casos inventaria evidencia o la tiraria.
  */
 export const aFeature = (d: DetalleVendedor): FeatureValue<Reputacion> => {
-  console.log('aFeature', d);
   if (d.reputation === 3 && d.confidence <= 2) {
     return indeterminado(
       `La ficha no publica evidencia suficiente sobre ${d.sellerName === '' ? 'el vendedor' : d.sellerName} (confianza ${d.confidenceLabel.toLowerCase()}).`,
@@ -105,38 +97,32 @@ export const consultarReputacion = async (
       body: JSON.stringify(soloLoLeido(datos)),
       signal: abortar.signal,
     });
-    const cuerpo: unknown = await res.json();
-    const sobre = esObjeto(cuerpo) ? cuerpo : {};
-    const item = sobre['item'];
-
-    if (!res.ok || sobre['isSuccess'] !== true || !esObjeto(item)) {
-      const mensaje = txt(sobre, 'message');
+    const { ok, item, mensaje } = leerRespuesta(await res.json(), res.ok);
+    if (!ok) {
       return {
         feature: indeterminado(mensaje === '' ? 'El analizador de reputacion no respondio.' : mensaje),
         detalle: null,
       };
     }
 
-    const reputation = num(item, 'reputation', 0);
+    const reputation = item.numOr('reputation', 0);
     if (!esNivel(reputation)) {
       return { feature: indeterminado('El analizador devolvio un nivel no reconocido.'), detalle: null };
     }
 
     const detalle: DetalleVendedor = {
-      sellerName: txt(item, 'sellerName'),
+      sellerName: item.txt('sellerName'),
       reputation,
-      reputationLabel: txt(item, 'reputationLabel'),
-      score: num(item, 'score', 0),
-      confidence: num(item, 'confidence', 0),
-      confidenceLabel: txt(item, 'confidenceLabel'),
-      coverage: num(item, 'coverage', 0),
-      summary: txt(item, 'summary'),
-      riskSignals: senales(item['riskSignals']),
-      trustSignals: senales(item['trustSignals']),
-      unverifiedSignals: senales(item['unverifiedSignals']),
-      limitations: Array.isArray(item['limitations'])
-        ? item['limitations'].filter((l): l is string => typeof l === 'string')
-        : [],
+      reputationLabel: item.txt('reputationLabel'),
+      score: item.numOr('score', 0),
+      confidence: item.numOr('confidence', 0),
+      confidenceLabel: item.txt('confidenceLabel'),
+      coverage: item.numOr('coverage', 0),
+      summary: item.txt('summary'),
+      riskSignals: senales(item, 'riskSignals'),
+      trustSignals: senales(item, 'trustSignals'),
+      unverifiedSignals: senales(item, 'unverifiedSignals'),
+      limitations: item.cadenas('limitations'),
     };
     return { feature: aFeature(detalle), detalle };
   } catch {

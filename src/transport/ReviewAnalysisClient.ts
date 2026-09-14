@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../api.js';
+import { leerRespuesta } from './sobre.js';
 import {
   conocido,
   indeterminado,
@@ -37,12 +38,6 @@ export interface ResultadoResenas {
 
 const TIMEOUT_MS = 15000;
 
-const esObjeto = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null;
-const num = (o: Record<string, unknown>, k: string, d: number): number =>
-  typeof o[k] === 'number' ? o[k] : d;
-const txt = (o: Record<string, unknown>, k: string): string =>
-  typeof o[k] === 'string' ? o[k] : '';
 
 const esNivel = (n: number): n is Autenticidad => Number.isInteger(n) && n >= 1 && n <= 5;
 
@@ -98,41 +93,36 @@ export const consultarAutenticidad = async (
       body: JSON.stringify({ category: categoria.slice(0, 200), reviews: cuerpoResenas }),
       signal: abortar.signal,
     });
-    const cuerpo: unknown = await res.json();
-    const sobre = esObjeto(cuerpo) ? cuerpo : {};
-    const item = sobre['item'];
-
-    if (!res.ok || sobre['isSuccess'] !== true || !esObjeto(item)) {
-      const mensaje = txt(sobre, 'message');
+    const { ok, item, mensaje } = leerRespuesta(await res.json(), res.ok);
+    if (!ok) {
       return {
         feature: indeterminado(mensaje === '' ? 'El analizador de resenas no respondio.' : mensaje),
         detalle: null,
       };
     }
 
-    const authenticity = num(item, 'authenticity', 0);
+    const authenticity = item.numOr('authenticity', 0);
     if (!esNivel(authenticity)) {
       return { feature: indeterminado('El analizador devolvio un nivel no reconocido.'), detalle: null };
     }
 
     const detalle: DetalleResenas = {
       authenticity,
-      authenticityLabel: txt(item, 'authenticityLabel'),
-      status: num(item, 'status', 0),
-      statusLabel: txt(item, 'statusLabel'),
-      confidence: num(item, 'confidence', 0),
-      confidenceLabel: txt(item, 'confidenceLabel'),
+      authenticityLabel: item.txt('authenticityLabel'),
+      status: item.numOr('status', 0),
+      statusLabel: item.txt('statusLabel'),
+      confidence: item.numOr('confidence', 0),
+      confidenceLabel: item.txt('confidenceLabel'),
       // Nullable a proposito: un 0 se leeria como "ninguna resena es falsa",
-      // que es lo contrario de lo que se sabe.
-      suspectRate: typeof item['suspectRate'] === 'number' ? item['suspectRate'] : null,
-      submittedCount: num(item, 'submittedCount', 0),
-      evaluatedCount: num(item, 'evaluatedCount', 0),
-      suspectCount: num(item, 'suspectCount', 0),
-      coverage: num(item, 'coverage', 0),
-      summary: txt(item, 'summary'),
-      limitations: Array.isArray(item['limitations'])
-        ? item['limitations'].filter((l): l is string => typeof l === 'string')
-        : [],
+      // que es lo contrario de lo que se sabe. `num` devuelve null si no hay
+      // numero, asi que la distincion se conserva.
+      suspectRate: item.num('suspectRate'),
+      submittedCount: item.numOr('submittedCount', 0),
+      evaluatedCount: item.numOr('evaluatedCount', 0),
+      suspectCount: item.numOr('suspectCount', 0),
+      coverage: item.numOr('coverage', 0),
+      summary: item.txt('summary'),
+      limitations: item.cadenas('limitations'),
     };
     return { feature: aFeature(detalle), detalle };
   } catch {
