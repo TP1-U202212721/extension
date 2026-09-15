@@ -58,7 +58,7 @@ const esNivel = (n: number): n is Reputacion => Number.isInteger(n) && n >= 1 &&
  * observacion. Colapsar los dos casos inventaria evidencia o la tiraria.
  */
 export const aFeature = (d: DetalleVendedor): FeatureValue<Reputacion> => {
-  if (d.reputation === 3 && d.confidence <= 2) {
+  if (d.reputation === 3 && d.confidence < 2) {
     return indeterminado(
       `La ficha no publica evidencia suficiente sobre ${d.sellerName === '' ? 'el vendedor' : d.sellerName} (confianza ${d.confidenceLabel.toLowerCase()}).`,
     );

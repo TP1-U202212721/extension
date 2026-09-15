@@ -12,6 +12,7 @@ import {
   type EvaluacionSolicitud,
   type RiskEngineClient,
 } from './RiskEngineClient.js';
+import type { DatosDelVendedor } from '../domain/insumos.js';
 
 /** Que analizadores del backend se consultan. */
 export interface Analizadores {
@@ -45,19 +46,18 @@ export class BackendRiskEngineClient implements RiskEngineClient {
 
   async evaluar(solicitud: EvaluacionSolicitud): Promise<Evaluacion> {
     const token = await this.tokens.obtener();
-    // Los cuatro endpoints exigen autenticacion hoy. Sin credencial no se
-    // evalua: la UI tiene que distinguir "no pude" de "necesitas cuenta".
     if (token === null) throw new SesionRequeridaError();
 
-    // Los analizadores son independientes entre si, asi que van en paralelo.
-    // Secuenciarlos solo sumaria sus latencias sobre la espera del comprador.
+    const datosVendedor: DatosDelVendedor | null =
+      solicitud.insumos.vendedor ?? { sellerName: '', platform: 'Mercado Libre' };
+
     const [doc, dominio, vendedor, resenas] = await Promise.all([
       this.analizadores.documento
         ? analizarDocumento(solicitud.url, solicitud.html, token)
         : null,
       this.analizadores.dominio ? consultarVeracidadDeDominio(solicitud.url, token) : null,
-      this.analizadores.vendedor && solicitud.insumos.vendedor !== null
-        ? consultarReputacion(solicitud.insumos.vendedor, this.tokens)
+      this.analizadores.vendedor
+        ? consultarReputacion(datosVendedor, this.tokens)
         : null,
       this.analizadores.resenas
         ? consultarAutenticidad(solicitud.insumos.resenas, solicitud.insumos.categoria, this.tokens)
@@ -70,11 +70,7 @@ export class BackendRiskEngineClient implements RiskEngineClient {
         dominio?.feature ?? indeterminado('El analizador de dominio esta desactivado.'),
       reputacionDelVendedor:
         vendedor?.feature ??
-        indeterminado(
-          solicitud.insumos.vendedor === null
-            ? 'La ficha no identifica al vendedor.'
-            : 'El analizador de reputacion del vendedor esta desactivado.',
-        ),
+        indeterminado('El analizador de reputacion del vendedor esta desactivado.'),
       autenticidadDeResenas:
         resenas?.feature ?? indeterminado('El analizador de resenas esta desactivado.'),
     };

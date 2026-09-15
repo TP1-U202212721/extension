@@ -34,8 +34,6 @@ export default defineBackground(() => {
     (mensaje: unknown, _sender, sendResponse: (r: Respuesta) => void) => {
       if (!esEvaluarMensaje(mensaje)) return false;
 
-      // El background es deliberadamente delgado: toda la orquestacion vive en
-      // el motor, para que el camino simulado y el real sean el mismo camino.
       void riskEngine
         .evaluar({
           plataforma: mensaje.plataforma,

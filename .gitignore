@@ -6,3 +6,4 @@ stats.html
 .DS_Store
 .idea/
 .opencode/
+.playwright-mcp/

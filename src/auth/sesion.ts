@@ -2,7 +2,7 @@ import { browser } from 'wxt/browser';
 import { API_BASE_URL } from '../api.js';
 
 /** Cliente web de ScamShield. Es quien autentica; la extension solo lee el resultado. */
-export const APP_WEB = 'http://localhost:3002';
+export const APP_WEB = 'http://localhost:3001';
 export const HOST_APP = 'scamshield.ryzeon.dev';
 export const URL_LOGIN = `${APP_WEB}/login`;
 export const URL_REGISTRO = `${APP_WEB}/register`;
@@ -20,23 +20,39 @@ export interface Sesion {
 }
 
 /**
- * Lee el email del JWT sin verificar la firma.
+ * Lee el payload del JWT sin verificar la firma.
  *
  * Es deliberado: la extension no valida el token, solo lo muestra. Quien lo
  * valida es el backend en cada peticion. Aqui un token manipulado no da acceso
  * a nada, solo mostraria un email equivocado en el propio popup del usuario.
  */
-const emailDelToken = (token: string): string => {
+const parsearPayload = (token: string): Record<string, unknown> | null => {
   try {
     const payload = token.split('.')[1];
-    if (payload === undefined) return '';
+    if (payload === undefined) return null;
     const json: unknown = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    if (typeof json !== 'object' || json === null) return '';
-    const valor = (json as Record<string, unknown>)[CLAIM_EMAIL];
-    return typeof valor === 'string' ? valor : '';
+    if (typeof json !== 'object' || json === null) return null;
+    return json as Record<string, unknown>;
   } catch {
-    return '';
+    return null;
   }
+};
+
+const emailDelToken = (token: string): string => {
+  const payload = parsearPayload(token);
+  if (payload === null) return '';
+  const valor = payload[CLAIM_EMAIL];
+  return typeof valor === 'string' ? valor : '';
+};
+
+/** Verifica si el token JWT está expirado según el claim `exp`. */
+const tokenExpirado = (token: string): boolean => {
+  const payload = parsearPayload(token);
+  if (payload === null) return true;
+  const exp = payload['exp'];
+  if (typeof exp !== 'number') return false;
+  const ahora = Math.floor(Date.now() / 1000);
+  return exp < ahora;
 };
 
 /** Token vigente en la cookie del cliente web, si la hay. */
@@ -72,6 +88,12 @@ const tokenEnAlmacen = async (): Promise<string | null> => {
 export const obtenerSesion = async (): Promise<Sesion | null> => {
   const token = (await tokenEnCookie()) ?? (await tokenEnAlmacen());
   if (token === null) return null;
+
+  if (tokenExpirado(token)) {
+    await cerrarSesion();
+    return null;
+  }
+
   return { token, email: emailDelToken(token) };
 };
 

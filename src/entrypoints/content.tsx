@@ -84,18 +84,12 @@ export default defineContentScript({
     const ancla = adapter.anclaBadge(document);
 
     const evaluar = async (): Promise<Evaluado | null> => {
-      // Se entrega el documento tal como el navegador lo renderizo, sin
-      // recortar: el backend acota al subarbol relevante. No se pide nada a la
-      // plataforma para obtenerlo, y el badge vive en shadow DOM, asi que su
-      // contenido no entra aqui.
       const mensaje: EvaluarMensaje = {
         tipo: 'evaluar',
         plataforma: publicacion.plataforma,
         publicacionId: publicacion.publicacionId,
         url: location.href,
         html: document.documentElement.outerHTML,
-        // Se leen del DOM vivo porque el service worker de MV3 no tiene
-        // DOMParser: el background no podria reconstruir el documento.
         insumos: adapter.insumos(document),
       };
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);

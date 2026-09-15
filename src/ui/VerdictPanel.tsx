@@ -8,6 +8,7 @@ import {
 } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio, SenalDominio } from '../transport/DomainVeracityClient.js';
+import type { DetalleVendedor, SenalVendedor } from '../transport/SellerReputationClient.js';
 import type { Detalles } from '../transport/RiskEngineClient.js';
 import { AVISO, COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 
@@ -34,6 +35,7 @@ interface Props {
 export function VerdictPanel({ verdict, features, plataforma, detalles, onCerrar }: Props) {
   const documento = detalles?.documento ?? null;
   const dominio = detalles?.dominio ?? null;
+  const vendedor = detalles?.vendedor ?? null;
   const clave = verdict.kind === 'riesgo' ? verdict.nivel : 'evidencia-insuficiente';
   const Icono = iconoDe(clave);
 
@@ -85,6 +87,8 @@ export function VerdictPanel({ verdict, features, plataforma, detalles, onCerrar
       )}
 
       {dominio != null && <AnalisisDeDominio d={dominio} />}
+
+      {vendedor != null && <AnalisisDelVendedor d={vendedor} />}
 
       <ListaCaracteristicas titulo="Se verifico" ids={resueltas} features={features} verificado />
       <ListaCaracteristicas
@@ -181,6 +185,70 @@ function AnalisisDeDominio({ d }: { readonly d: DetalleDominio }) {
         </div>
       )}
     </details>
+  );
+}
+
+/**
+ * Desglose del analizador de reputacion del vendedor. Misma estructura que
+ * AnalisisDeDominio: el comprador necesita ver las senales que respaldan
+ * la estimacion, no solo el nivel final.
+ */
+function AnalisisDelVendedor({ d }: { readonly d: DetalleVendedor }) {
+  const cobertura = Math.round(d.coverage * 100);
+  return (
+    <details className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <summary className="cursor-pointer list-none text-sm font-bold text-slate-800">
+        Reputacion del vendedor · {d.sellerName}
+      </summary>
+
+      <p className="mt-2 text-sm leading-snug text-slate-700">{d.summary}</p>
+
+      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+        <Dato titulo="Nivel" valor={d.reputationLabel} />
+        <Dato titulo="Confianza" valor={d.confidenceLabel} />
+        <Dato titulo="Cobertura" valor={`${String(cobertura)}%`} />
+      </dl>
+
+      <GrupoSenalesVendedor titulo="Señales de riesgo" senales={d.riskSignals} />
+      <GrupoSenalesVendedor titulo="Señales a favor" senales={d.trustSignals} />
+      <GrupoSenalesVendedor titulo="No se pudo comprobar" senales={d.unverifiedSignals} />
+
+      {d.limitations.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Limitaciones aplicadas
+          </p>
+          <ul className="mt-1 list-disc pl-4 text-xs leading-snug text-slate-600">
+            {d.limitations.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </details>
+  );
+}
+
+function GrupoSenalesVendedor({
+  titulo,
+  senales,
+}: {
+  readonly titulo: string;
+  readonly senales: readonly SenalVendedor[];
+}) {
+  if (senales.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{titulo}</p>
+      <ul className="mt-1 flex flex-col gap-1">
+        {senales.map((s) => (
+          <li key={s.code} className="text-xs leading-snug text-slate-700">
+            <span className="font-semibold">{s.familyLabel}: </span>
+            {s.explanation}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
