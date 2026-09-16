@@ -12,6 +12,17 @@ const TARJETAS: readonly string[] = ['[class*="search-item-card-wrapper"]', '[cl
 const ENLACE_FICHA = 'a[href*="/item/"]';
 
 /**
+ * Controles de compra. Se usan SOLO para reconocer el clic del comprador y saber
+ * si siguio hacia el pago pese a la advertencia. Nunca se pulsan.
+ */
+const COMPRA: readonly string[] = [
+  'button[data-pl="product-buy-now"]',
+  'button[data-pl="product-add-to-cart"]',
+  '[class*="buynow"] button',
+  '[class*="addcart"] button',
+];
+
+/**
  * Adaptador de AliExpress.
  *
  * Ya NO extrae caracteristicas: eso lo hace el backend sobre el documento que
@@ -60,5 +71,18 @@ export class AliExpressAdapter implements MarketplaceAdapter {
    */
   insumos(_doc: Document): Insumos {
     return SIN_INSUMOS;
+  }
+
+  /**
+   * Sin lectura de migas de pan para esta plataforma, igual que `insumos`.
+   * Devolver vacio deja el evento sin categoria, que es exactamente lo que
+   * corresponde: inventarla seria peor que no tenerla.
+   */
+  categoriaGruesa(_doc: Document): string {
+    return '';
+  }
+
+  selectoresDeCompra(): readonly string[] {
+    return COMPRA;
   }
 }

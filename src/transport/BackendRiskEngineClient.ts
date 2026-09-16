@@ -6,11 +6,14 @@ import { consultarVeracidadDeDominio } from './DomainVeracityClient.js';
 import { consultarReputacion } from './SellerReputationClient.js';
 import { consultarAutenticidad } from './ReviewAnalysisClient.js';
 import {
+  OMITIDO,
   SesionRequeridaError,
   type Detalles,
   type Evaluacion,
   type EvaluacionSolicitud,
+  type PasoDeTraza,
   type RiskEngineClient,
+  type Traza,
 } from './RiskEngineClient.js';
 import type { DatosDelVendedor } from '../domain/insumos.js';
 
@@ -52,39 +55,80 @@ export class BackendRiskEngineClient implements RiskEngineClient {
       solicitud.insumos.vendedor ?? { sellerName: '', platform: 'Mercado Libre' };
 
     const [doc, dominio, vendedor, resenas] = await Promise.all([
-      this.analizadores.documento
-        ? analizarDocumento(solicitud.url, solicitud.html, token)
-        : null,
-      this.analizadores.dominio ? consultarVeracidadDeDominio(solicitud.url, token) : null,
-      this.analizadores.vendedor
-        ? consultarReputacion(datosVendedor, this.tokens)
-        : null,
-      this.analizadores.resenas
-        ? consultarAutenticidad(solicitud.insumos.resenas, solicitud.insumos.categoria, this.tokens)
-        : null,
+      cronometrar(
+        this.analizadores.documento,
+        () => analizarDocumento(solicitud.url, solicitud.html, token),
+      ),
+      cronometrar(
+        this.analizadores.dominio,
+        () => consultarVeracidadDeDominio(solicitud.url, token),
+      ),
+      cronometrar(this.analizadores.vendedor, () =>
+        consultarReputacion(datosVendedor, this.tokens),
+      ),
+      cronometrar(this.analizadores.resenas, () =>
+        consultarAutenticidad(
+          solicitud.insumos.resenas,
+          solicitud.insumos.categoria,
+          this.tokens,
+        ),
+      ),
     ]);
 
     const features: FeatureSet = {
-      ...(doc?.features ?? SIN_DOCUMENTO),
+      ...(doc?.valor.features ?? SIN_DOCUMENTO),
       veracidadDeDominio:
-        dominio?.feature ?? indeterminado('El analizador de dominio esta desactivado.'),
+        dominio?.valor.feature ?? indeterminado('El analizador de dominio esta desactivado.'),
       reputacionDelVendedor:
-        vendedor?.feature ??
+        vendedor?.valor.feature ??
         indeterminado('El analizador de reputacion del vendedor esta desactivado.'),
       autenticidadDeResenas:
-        resenas?.feature ?? indeterminado('El analizador de resenas esta desactivado.'),
+        resenas?.valor.feature ?? indeterminado('El analizador de resenas esta desactivado.'),
     };
 
     const detalles: Detalles = {
-      documento: doc?.detalle ?? null,
-      dominio: dominio?.detalle ?? null,
-      vendedor: vendedor?.detalle ?? null,
-      resenas: resenas?.detalle ?? null,
+      documento: doc?.valor.detalle ?? null,
+      dominio: dominio?.valor.detalle ?? null,
+      vendedor: vendedor?.valor.detalle ?? null,
+      resenas: resenas?.valor.detalle ?? null,
     };
 
-    return { verdict: this.policy.decidir(features), features, detalles };
+    const traza: Traza = {
+      documento: paso(doc),
+      dominio: paso(dominio),
+      vendedor: paso(vendedor),
+      resenas: paso(resenas),
+    };
+
+    return { verdict: this.policy.decidir(features), features, detalles, traza };
   }
 }
+
+/** Lo que devuelve un analizador, junto a lo que tardo en devolverlo. */
+interface Medido<T> {
+  readonly valor: T;
+  readonly duracionMs: number;
+}
+
+/**
+ * Corre un analizador midiendo cuanto tarda, o devuelve null si esta apagado.
+ *
+ * La latencia se mide AQUI, alrededor de la llamada, y no dentro del cliente:
+ * lo que le interesa a la tesis es lo que espero el comprador, que incluye
+ * serializar el documento y leer la respuesta, no solo el tiempo del servidor.
+ */
+const cronometrar = async <T>(
+  encendido: boolean,
+  llamar: () => Promise<T>,
+): Promise<Medido<T> | null> => {
+  if (!encendido) return null;
+  const inicio = Date.now();
+  const valor = await llamar();
+  return { valor, duracionMs: Date.now() - inicio };
+};
+
+const paso = (m: Medido<{ readonly desenlace: PasoDeTraza['desenlace'] }> | null): PasoDeTraza =>
+  m === null ? OMITIDO : { desenlace: m.valor.desenlace, duracionMs: m.duracionMs };
 
 const APAGADO = 'El analizador de documento esta desactivado.';
 

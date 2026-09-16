@@ -13,6 +13,14 @@ export type Verdict =
       readonly nivel: NivelDeRiesgo;
       /** 0.0 - 1.0. Proporcion de caracteristicas que sustentan el veredicto. */
       readonly confianza: number;
+      /**
+       * 0 - 100, de peor a mejor, en la misma orientacion que los puntajes de
+       * los analizadores del backend. Es la cifra continua detras del nivel:
+       * `nivel` la agrupa en tres tramos y pierde la distancia al corte, que es
+       * justo lo que la analitica necesita para decir cuan al filo quedo una
+       * consulta. La reporta la politica que decidio, no se recalcula despues.
+       */
+      readonly puntaje: number;
       readonly sustentan: readonly FeatureId[];
       readonly sinResolver: readonly FeatureId[];
     }

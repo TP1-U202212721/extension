@@ -5,7 +5,19 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { adapterPara } from '../extraction/registry.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
-import { esSesionRequerida, esVeredictoRespuesta, type EvaluarMensaje } from '../messaging.js';
+import {
+  esEncuestaEnviada,
+  esEncuestaRespuesta,
+  esSesionRequerida,
+  esVeredictoRespuesta,
+  type EncuestaDescartadaMensaje,
+  type EncuestaEnvioMensaje,
+  type EncuestaOfertaMensaje,
+  type EvaluarMensaje,
+} from '../messaging.js';
+import { EmisorDeContenido } from '../analytics/EmisorDeContenido.js';
+import { nuevoIdDeSesion } from '../analytics/identidad.js';
+import type { CanalDeEncuesta } from '../ui/ScamShieldBadge.js';
 import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.js';
 import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
@@ -56,6 +68,17 @@ export default defineContentScript({
     const adapter = adapterPara(location.href);
     if (adapter === null) return;
 
+    // Una sesion de uso por pestana con una ficha abierta. Vive en memoria y
+    // muere con la pestana: es lo que el contrato pide, y no se guarda en
+    // ningun sitio justamente para que muera.
+    const emisor = new EmisorDeContenido(
+      nuevoIdDeSesion(),
+      adapter.plataforma,
+      () => location.href,
+      () => adapter.categoriaGruesa(document),
+    );
+    emisor.sesionIniciada();
+
     // Tarjetas de listado y carruseles: un enlace por tarjeta, sin veredicto.
     // Los carruseles se pueblan tarde, asi que se vuelve a recorrer cuando el
     // DOM cambia. Solo se lee el documento ya renderizado; no se pide nada.
@@ -79,6 +102,8 @@ export default defineContentScript({
     const publicacion = adapter.identificar(new URL(location.href));
     if (publicacion === null) return;
 
+    emisor.fichaDetectada();
+
     // Al cargar la pagina NO se lee el DOM ni se consulta nada: solo se inserta
     // el badge. La extraccion ocurre cuando el comprador hace clic.
     const ancla = adapter.anclaBadge(document);
@@ -91,6 +116,8 @@ export default defineContentScript({
         url: location.href,
         html: document.documentElement.outerHTML,
         insumos: adapter.insumos(document),
+        sesionId: emisor.sesionId,
+        categoria: adapter.categoriaGruesa(document),
       };
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
       if (esSesionRequerida(bruto)) return null;
@@ -113,6 +140,84 @@ export default defineContentScript({
       }
       // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
       return { verdict: SIN_RESPUESTA, features: SIN_FEATURES, detalles: SIN_DETALLES };
+    };
+
+    /**
+     * Que hizo el comprador DESPUES de ver la advertencia, que es la pregunta
+     * que la tesis quiere responder.
+     *
+     * Un clic en un control de compra de la ficha es una observacion: ocurrio.
+     * Irse de la pagina sin haberlo tocado es una aproximacion, y como tal esta
+     * documentada en `EmisorDeContenido.abandonoTrasLaAdvertencia` y en el ADR.
+     *
+     * El listener va en captura y solo LEE el evento: no lo cancela, no lo
+     * simula y no toca el flujo de compra del marketplace.
+     */
+    const selectoresDeCompra = adapter.selectoresDeCompra();
+    if (selectoresDeCompra.length > 0) {
+      const alClic = (e: Event): void => {
+        const objetivo = e.target;
+        if (!(objetivo instanceof Element)) return;
+        try {
+          if (objetivo.closest(selectoresDeCompra.join(',')) === null) return;
+        } catch {
+          return; // selector invalido: no se emite nada
+        }
+        emisor.continuoPeseALaAdvertencia();
+      };
+      document.addEventListener('click', alClic, { capture: true, passive: true });
+      ctx.onInvalidated(() => {
+        document.removeEventListener('click', alClic, { capture: true });
+      });
+    }
+
+    const alSalir = (): void => {
+      emisor.abandonoTrasLaAdvertencia();
+    };
+    // Los dos: `pagehide` cubre la navegacion y `visibilitychange` el cierre de
+    // pestana, donde `pagehide` a veces llega tarde para mandar un mensaje. El
+    // emisor se encarga de que solo se emita una vez.
+    window.addEventListener('pagehide', alSalir);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') alSalir();
+    });
+    ctx.onInvalidated(() => {
+      window.removeEventListener('pagehide', alSalir);
+    });
+
+    /**
+     * La encuesta pasa por el background como todo lo demas: el content script
+     * no habla con la red. El criterio de cuando ofrecerla no esta aqui sino en
+     * `src/domain/encuesta/criterio.ts`; aqui solo se pregunta.
+     */
+    const encuesta: CanalDeEncuesta = {
+      ofrecer: async () => {
+        const peticion: EncuestaOfertaMensaje = { tipo: 'encuesta-oferta' };
+        try {
+          const r: unknown = await browser.runtime.sendMessage(peticion);
+          return esEncuestaRespuesta(r) ? r.instrumento : null;
+        } catch {
+          return null;
+        }
+      },
+      enviar: async (respuesta) => {
+        const peticion: EncuestaEnvioMensaje = {
+          tipo: 'encuesta-envio',
+          ...respuesta,
+          plataforma: publicacion.plataforma,
+          url: location.href,
+        };
+        try {
+          const r: unknown = await browser.runtime.sendMessage(peticion);
+          return esEncuestaEnviada(r) ? r.resultado.tipo : 'fallo';
+        } catch {
+          return 'fallo';
+        }
+      },
+      descartar: () => {
+        const peticion: EncuestaDescartadaMensaje = { tipo: 'encuesta-descartada' };
+        void browser.runtime.sendMessage(peticion).catch(() => undefined);
+      },
     };
 
     let root: Root | undefined;
@@ -141,6 +246,8 @@ export default defineContentScript({
           createElement(ScamShieldBadge, {
             plataforma: publicacion.plataforma,
             evaluar,
+            interacciones: emisor,
+            encuesta,
           }),
         );
       },

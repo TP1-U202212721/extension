@@ -9,6 +9,7 @@ import {
 import { ThresholdPolicy } from '../domain/policy/ThresholdPolicy.js';
 import {
   SIN_DETALLES,
+  SIN_TRAZA,
   type Evaluacion,
   type EvaluacionSolicitud,
   type RiskEngineClient,
@@ -65,7 +66,12 @@ export class MockRiskEngineClient implements RiskEngineClient {
       const vacio: FeatureSet = Object.fromEntries(
         FEATURE_IDS.map((id) => [id, indeterminado('Escenario de prueba: sin evidencia.')]),
       ) as unknown as FeatureSet;
-      return { verdict: this.#policy.decidir(vacio), features: vacio, detalles: SIN_DETALLES };
+      return {
+        verdict: this.#policy.decidir(vacio),
+        features: vacio,
+        detalles: SIN_DETALLES,
+        traza: SIN_TRAZA,
+      };
     }
 
     const base = this.#conBackendDeEjemplo(f);
@@ -73,15 +79,25 @@ export class MockRiskEngineClient implements RiskEngineClient {
       verdict: {
         kind: 'riesgo',
         nivel: escenario,
+        // Maqueta: el puntaje es el del tramo, no una medicion.
+        puntaje: PUNTAJE_DE_EJEMPLO[escenario],
         confianza: resueltas(base).length / FEATURE_IDS.length,
         sustentan: resueltas(base),
         sinResolver: sinResolver(base),
       },
       features: base,
       detalles: SIN_DETALLES,
+      traza: SIN_TRAZA,
     };
   }
 }
+
+/** Puntajes de maqueta, uno por tramo. No salen de ninguna medicion. */
+const PUNTAJE_DE_EJEMPLO: Readonly<Record<Exclude<Escenario, 'evidencia-insuficiente'>, number>> = {
+  alto: 20,
+  moderado: 55,
+  bajo: 90,
+};
 
 /** Punto de partida de los escenarios: nada leido de ninguna pagina. */
 const VACIO: FeatureSet = Object.fromEntries(

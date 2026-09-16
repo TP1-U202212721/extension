@@ -144,6 +144,20 @@ export const categoriaDe = (doc: Document): string => {
   return ultima?.textContent.trim() ?? '';
 };
 
+/**
+ * Los dos primeros escalones de las migas de pan.
+ *
+ * Los PRIMEROS y no el ultimo: son los generales ("Electronica, Audio y Video",
+ * "Audio"), y son los unicos que la analitica puede emitir. El ultimo escalon
+ * describe el producto concreto y se queda en el navegador.
+ */
+export const categoriaGruesaDe = (doc: Document): string =>
+  todos(doc, RESENAS.categoria)
+    .slice(0, 2)
+    .map((e) => e.textContent.trim())
+    .filter((t) => t !== '')
+    .join('/');
+
 export const insumosDeMercadoLibre = (doc: Document): Insumos => ({
   vendedor: datosDelVendedor(doc),
   resenas: resenasVisibles(doc),

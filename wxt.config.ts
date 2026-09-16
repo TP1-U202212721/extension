@@ -47,7 +47,11 @@ export default defineConfig({
     // ahi el cliente web deja el token tras iniciar sesion, y leerlo evita
     // duplicar el login dentro de la extension. Sigue sin haber ni un permiso
     // sobre los marketplaces: a ellos no se les pide absolutamente nada.
-    permissions: ['storage', 'cookies'],
+    // `alarms` es lo que permite vaciar la cola de analitica: en MV3 el service
+    // worker se apaga solo, y una alarma es lo unico que vuelve a despertarlo.
+    // Sin ella la cola solo se vaciaria por umbral y lo acumulado podria
+    // quedarse esperando indefinidamente.
+    permissions: ['storage', 'cookies', 'alarms'],
     host_permissions: ['https://scamshield.ryzeon.dev/*', 'http://localhost:8081/*'],
 
     ...(browser === 'firefox'
