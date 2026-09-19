@@ -176,24 +176,46 @@ antes de entregar el mensaje: **la tasa de 6 es una cota inferior**.
 
 ### Cuando se ofrece, y por que ese criterio
 
+> **Revisado el 2026-09-19.** La primera version ofrecia la encuesta **una sola vez por
+> instalacion, desde la tercera consulta**. Se cambio a **una calificacion por consulta**,
+> que es ademas lo que el backend ya soportaba: su indice antiduplicado es por
+> respondiente, instrumento **y consulta**. El criterio anterior media una impresion
+> global; el nuevo mide cada veredicto, que es el dato que la tesis necesita.
+
 El criterio esta en `src/domain/encuesta/criterio.ts`, puro y con nombre, porque es una
-decision metodologica y no un detalle de la pantalla. Se ofrece cuando se cumplen las
-cuatro condiciones:
+decision metodologica y no un detalle de la pantalla. Se ofrece **en cada consulta que dio
+veredicto**, salvo que:
 
-1. **A partir de la tercera consulta resuelta** de esta instalacion. **Nunca en la
-   primera**: a la primera la persona calificaria la novedad, no la herramienta, y el
-   protocolo mide satisfaccion con el uso.
-2. **Sobre una consulta que dio veredicto.** Si el motor fallo no hay resultado que
-   calificar, y la nota no se podria cruzar con ningun veredicto, que es el cruce que
-   justifica la encuesta.
-3. **Una sola vez.** Respondida o descartada ("Ahora no"), no se vuelve a ofrecer nunca.
-   El backend ademas responde `409` a una segunda respuesta sobre el mismo contexto.
-4. **Con el modulo encendido**, segun el propio instrumento.
+1. **La consulta no llego a veredicto.** No hay resultado que calificar ni con que cruzar
+   la nota.
+2. **El modulo esta apagado**, segun el propio instrumento.
+3. **Ya van cinco respuestas hoy** (`MAXIMO_POR_DIA`, dia UTC). Es el mismo tope del
+   backend (`Feedback:MaxResponsesPerRespondentPerDay`): pasado ese numero responderia
+   `429`, asi que se deja de mostrar en vez de ofrecer algo que va a fallar. Es tambien el
+   freno contra el cansancio.
+4. **Pasaron menos de 30 segundos del ultimo envio** (`ESPERA_MINIMA_MS`), igual que
+   `Feedback:MinSecondsBetweenResponses`.
 
-Se muestra **dentro del panel del veredicto**, debajo del resultado y encima del aviso
-legal: es donde la persona tiene delante lo que se le pide calificar. La cuenta de
-consultas vive en `storage.local`, no en memoria, porque "una vez por instalacion" no puede
-degradarse a "una vez por sesion".
+**"Ahora no" oculta la encuesta solo en esa consulta**; no la cierra para siempre.
+
+Se muestra **dentro del panel del veredicto**, no como ventana emergente: es donde la
+persona tiene delante lo que se le pide calificar, y un popup en cada consulta se cierra
+sin leer a la tercera vez, lo que llenaria los datos de clics apurados.
+
+**El consentimiento se pide la primera vez y se recuerda por version de texto.** Pedir la
+casilla en cada consulta haria la calificacion inviable. Si la persona ya acepto *esa*
+version, el panel no vuelve a mostrar la casilla, pero si una linea que indica que esta
+participando y un boton para retirarlo. Si el texto del consentimiento cambia, cambia su
+version y la casilla vuelve. La version viaja con cada respuesta.
+
+La cuenta diaria, el ultimo envio y el consentimiento viven en `storage.local` (clave
+`scamshield.encuesta.estado.v2`), para sobrevivir al cierre del navegador. Solo se anota lo
+que el servidor acepto: un `409`, `429` o `503` no cuenta, porque el servidor lleva su
+propia cuenta.
+
+**El cuestionario global de quince items del protocolo es otro instrumento** y, cuando se
+cargue en el catalogo del backend, se ofrecera aparte y una sola vez: mide la experiencia
+entera, no una consulta.
 
 ### Las preguntas no estan en la extension
 

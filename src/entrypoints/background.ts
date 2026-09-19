@@ -5,6 +5,7 @@ import {
   esAnaliticaMensaje,
   esEncuestaDescartada,
   esEncuestaEnvio,
+  esEncuestaRetirarConsentimiento,
   esEncuestaOferta,
   esEvaluarMensaje,
   type AnaliticaMensaje,
@@ -16,11 +17,15 @@ import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.
 import { COOKIE, HOST_APP, sincronizarConCookie } from '../auth/sesion.js';
 import { bloqueDeAnalisis } from '../analytics/desenlace.js';
 import type { ContextoDeUso } from '../analytics/Analitica.js';
-import { debeOfrecerse, MINIMO_CONSULTAS } from '../domain/encuesta/criterio.js';
+import { consentimientoVigente, debeOfrecerse } from '../domain/encuesta/criterio.js';
 import { ALCANCE, plataformaDeEncuesta } from '../domain/encuesta/instrumento.js';
 import type { Instrumento } from '../domain/encuesta/instrumento.js';
 import { enviarRespuesta, obtenerInstrumento } from '../feedback/FeedbackClient.js';
-import { cerrarEncuesta, registrarConsultaResuelta } from '../feedback/estado.js';
+import {
+  leerEstadoDeEncuesta,
+  registrarEnvio,
+  retirarConsentimiento,
+} from '../feedback/estado.js';
 import { idDeInstalacion } from '../analytics/identidad.js';
 
 const FALLO = 'No se pudo completar el analisis.';
@@ -79,8 +84,8 @@ export default defineBackground(() => {
       }
 
       if (esEncuestaOferta(mensaje)) {
-        void ofrecerEncuesta().then((instrumento) => {
-          sendResponse({ tipo: 'encuesta', instrumento });
+        void ofrecerEncuesta().then((oferta) => {
+          sendResponse({ tipo: 'encuesta', ...oferta });
         });
         return true;
       }
@@ -93,7 +98,13 @@ export default defineBackground(() => {
       }
 
       if (esEncuestaDescartada(mensaje)) {
-        void cerrarEncuesta('descartada');
+        // "Ahora no" solo oculta la encuesta de esa consulta; no hay nada que guardar.
+        sendResponse({ tipo: 'listo' });
+        return false;
+      }
+
+      if (esEncuestaRetirarConsentimiento(mensaje)) {
+        void retirarConsentimiento();
         sendResponse({ tipo: 'listo' });
         return false;
       }
@@ -171,34 +182,33 @@ const registrarEventoDeContenido = (m: AnaliticaMensaje): void => {
 };
 
 /**
- * Decide si toca ofrecer la encuesta, y de paso cuenta la consulta.
- *
- * La cuenta se incrementa AQUI y no al emitir el veredicto para que no haya dos
- * caminos que la toquen: el content script pregunta exactamente una vez por
- * cada consulta que llego a veredicto, asi que una pregunta es una consulta.
+ * Decide si toca ofrecer la encuesta en esta consulta. El criterio vive en
+ * `src/domain/encuesta/criterio.ts`; aqui solo se reunen sus datos.
  */
-const ofrecerEncuesta = async (): Promise<Instrumento | null> => {
+const ofrecerEncuesta = async (): Promise<{
+  instrumento: Instrumento | null;
+  consentimientoVigente: boolean;
+}> => {
+  const nada = { instrumento: null, consentimientoVigente: false };
   try {
-    const estado = await registrarConsultaResuelta();
-    // Antes del minimo no se pide el instrumento siquiera: seria una peticion
-    // por analisis para no mostrar nada.
-    if (estado.desenlace !== 'pendiente' || estado.consultasResueltas < MINIMO_CONSULTAS) {
-      return null;
+    const estado = await leerEstadoDeEncuesta();
+    const ahora = Date.now();
+    // Antes de pedir el instrumento: si el tope local ya se alcanzo, no se hace
+    // una peticion por analisis para no mostrar nada.
+    if (!debeOfrecerse({ estado, huboVeredicto: true, moduloEncendido: true, ahora })) {
+      return nada;
     }
 
     const instrumento = await instrumentoVigente();
-    if (instrumento === null) return null;
+    if (instrumento === null || !instrumento.moduleEnabled) return nada;
 
-    return debeOfrecerse({
-      estado,
-      huboVeredicto: true,
-      moduloEncendido: instrumento.moduleEnabled,
-    })
-      ? instrumento
-      : null;
+    return {
+      instrumento,
+      consentimientoVigente: consentimientoVigente(estado, instrumento.consentVersion),
+    };
   } catch {
     // La encuesta jamas puede romper nada: ante la duda, no se ofrece.
-    return null;
+    return nada;
   }
 };
 
@@ -220,8 +230,8 @@ const responderEncuesta = async (m: EncuestaEnvioMensaje) => {
     verdictConfidence: m.verdictConfidence,
   });
 
-  if (resultado.tipo !== 'fallo') {
-    await cerrarEncuesta(resultado.tipo === 'registrada' ? 'enviada' : 'descartada');
-  }
+  // Solo cuenta para el tope diario lo que el servidor acepto. Un 409 (ya
+  // calificada), 429 o 503 no se anota: el servidor ya lleva su propia cuenta.
+  if (resultado.tipo === 'registrada') await registrarEnvio(m.consentVersion);
   return resultado;
 };

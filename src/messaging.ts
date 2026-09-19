@@ -73,9 +73,14 @@ export interface EncuestaEnvioMensaje {
   readonly verdictConfidence: number | null;
 }
 
-/** La persona cerro la encuesta sin responder. No se vuelve a ofrecer. */
+/** La persona cerro la encuesta de ESTA consulta sin responder. No cierra nada mas. */
 export interface EncuestaDescartadaMensaje {
   readonly tipo: 'encuesta-descartada';
+}
+
+/** La persona retira su consentimiento: se le volvera a pedir la casilla. */
+export interface EncuestaRetirarConsentimientoMensaje {
+  readonly tipo: 'encuesta-retirar-consentimiento';
 }
 
 export interface VeredictoRespuesta {
@@ -96,6 +101,8 @@ export interface SesionRequeridaRespuesta {
 export interface EncuestaRespuesta {
   readonly tipo: 'encuesta';
   readonly instrumento: Instrumento | null;
+  /** La persona ya acepto esta misma version del consentimiento. */
+  readonly consentimientoVigente: boolean;
 }
 
 export interface EncuestaEnviadaRespuesta {
@@ -120,7 +127,8 @@ export type Mensaje =
   | AnaliticaMensaje
   | EncuestaOfertaMensaje
   | EncuestaEnvioMensaje
-  | EncuestaDescartadaMensaje;
+  | EncuestaDescartadaMensaje
+  | EncuestaRetirarConsentimientoMensaje;
 
 /**
  * Guardas de runtime. Un mensaje que cruza el limite entre content script y
@@ -142,6 +150,10 @@ export const esEncuestaEnvio = (m: unknown): m is EncuestaEnvioMensaje =>
 
 export const esEncuestaDescartada = (m: unknown): m is EncuestaDescartadaMensaje =>
   esTipo(m, 'encuesta-descartada');
+
+export const esEncuestaRetirarConsentimiento = (
+  m: unknown,
+): m is EncuestaRetirarConsentimientoMensaje => esTipo(m, 'encuesta-retirar-consentimiento');
 
 export const esVeredictoRespuesta = (r: unknown): r is VeredictoRespuesta =>
   esTipo(r, 'veredicto');

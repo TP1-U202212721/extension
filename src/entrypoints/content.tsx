@@ -11,6 +11,7 @@ import {
   esSesionRequerida,
   esVeredictoRespuesta,
   type EncuestaDescartadaMensaje,
+  type EncuestaRetirarConsentimientoMensaje,
   type EncuestaEnvioMensaje,
   type EncuestaOfertaMensaje,
   type EvaluarMensaje,
@@ -195,7 +196,9 @@ export default defineContentScript({
         const peticion: EncuestaOfertaMensaje = { tipo: 'encuesta-oferta' };
         try {
           const r: unknown = await browser.runtime.sendMessage(peticion);
-          return esEncuestaRespuesta(r) ? r.instrumento : null;
+          return esEncuestaRespuesta(r) && r.instrumento !== null
+            ? { instrumento: r.instrumento, consentimientoVigente: r.consentimientoVigente }
+            : null;
         } catch {
           return null;
         }
@@ -216,6 +219,12 @@ export default defineContentScript({
       },
       descartar: () => {
         const peticion: EncuestaDescartadaMensaje = { tipo: 'encuesta-descartada' };
+        void browser.runtime.sendMessage(peticion).catch(() => undefined);
+      },
+      retirarConsentimiento: () => {
+        const peticion: EncuestaRetirarConsentimientoMensaje = {
+          tipo: 'encuesta-retirar-consentimiento',
+        };
         void browser.runtime.sendMessage(peticion).catch(() => undefined);
       },
     };

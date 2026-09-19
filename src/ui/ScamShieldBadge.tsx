@@ -41,8 +41,12 @@ export interface InteraccionesDelBadge {
 
 /** Como se envia la encuesta. La decide el content script; el badge solo dibuja. */
 export interface CanalDeEncuesta {
-  /** Devuelve el instrumento vigente, o null si no toca preguntar. */
-  readonly ofrecer: () => Promise<Instrumento | null>;
+  /** Devuelve el instrumento vigente, o null si no toca preguntar en esta consulta. */
+  readonly ofrecer: () => Promise<{
+    readonly instrumento: Instrumento;
+    /** La persona ya acepto esta version del consentimiento. */
+    readonly consentimientoVigente: boolean;
+  } | null>;
   readonly enviar: (r: {
     readonly rating: number;
     readonly comment: string;
@@ -54,6 +58,7 @@ export interface CanalDeEncuesta {
     readonly verdictConfidence: number | null;
   }) => Promise<'registrada' | 'cerrada' | 'fallo'>;
   readonly descartar: () => void;
+  readonly retirarConsentimiento: () => void;
 }
 
 interface Props {
@@ -83,6 +88,7 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
   const [abierto, setAbierto] = useState(false);
   const [instrumento, setInstrumento] = useState<Instrumento | null>(null);
   const [faseEncuesta, setFaseEncuesta] = useState<FaseEncuesta>('oculta');
+  const [consentimientoVigente, setConsentimientoVigente] = useState(false);
 
   /**
    * El evento se emite FUERA del actualizador de estado a proposito: React
@@ -117,9 +123,10 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
       interacciones?.advertenciaExpandida();
 
       // La encuesta se consulta DESPUES de mostrar el veredicto y sin bloquearlo.
-      void encuesta?.ofrecer().then((i) => {
-        if (i === null) return;
-        setInstrumento(i);
+      void encuesta?.ofrecer().then((oferta) => {
+        if (oferta === null) return;
+        setInstrumento(oferta.instrumento);
+        setConsentimientoVigente(oferta.consentimientoVigente);
         setFaseEncuesta('visible');
       });
     });
@@ -142,6 +149,11 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
         <EncuestaSatisfaccion
           instrumento={instrumento}
           enviando={faseEncuesta === 'enviando'}
+          consentimientoVigente={consentimientoVigente}
+          onRetirarConsentimiento={() => {
+            setConsentimientoVigente(false);
+            encuesta?.retirarConsentimiento();
+          }}
           fallo={faseEncuesta === 'fallo'}
           onDescartar={() => {
             setFaseEncuesta('oculta');

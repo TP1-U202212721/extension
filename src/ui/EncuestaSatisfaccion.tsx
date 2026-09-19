@@ -14,11 +14,15 @@ import { itemsOrdenados, type Instrumento } from '../domain/encuesta/instrumento
  * estrellas a mano.
  *
  * ── EL CONSENTIMIENTO ───────────────────────────────────────────────────────
- * La casilla arranca DESMARCADA y el boton de enviar esta deshabilitado hasta
- * que la persona la marca. No hay forma de enviar sin aceptar, ni aqui, ni en
- * el cliente de transporte, ni en el servidor. El texto que se muestra es el que
- * vino con el instrumento, y su version viaja con la respuesta: si manana el
- * texto cambia, se puede decir a que dijo que si cada persona.
+ * La primera vez, la casilla arranca DESMARCADA y el boton de enviar esta
+ * deshabilitado hasta que la persona la marca. No hay forma de enviar sin
+ * aceptar, ni aqui, ni en el cliente de transporte, ni en el servidor.
+ *
+ * Como la encuesta se ofrece en cada consulta, la aceptacion se recuerda por
+ * version del texto: si la persona ya acepto ESTA version, no se le vuelve a
+ * pedir la casilla, pero se le muestra que esta participando y puede retirarlo
+ * con un clic. Si el texto cambia, cambia su version y la casilla vuelve.
+ * La version viaja con cada respuesta.
  */
 
 interface Props {
@@ -33,6 +37,9 @@ interface Props {
   readonly enviando: boolean;
   /** El envio fallo por red. Se puede reintentar. */
   readonly fallo: boolean;
+  /** La persona ya acepto esta version del consentimiento en una consulta anterior. */
+  readonly consentimientoVigente: boolean;
+  readonly onRetirarConsentimiento: () => void;
 }
 
 export function EncuestaSatisfaccion({
@@ -41,6 +48,8 @@ export function EncuestaSatisfaccion({
   onDescartar,
   enviando,
   fallo,
+  consentimientoVigente,
+  onRetirarConsentimiento,
 }: Props) {
   const [valor, setValor] = useState<number | null>(null);
   const [comentario, setComentario] = useState('');
@@ -50,7 +59,8 @@ export function EncuestaSatisfaccion({
   const principal = items[0];
   if (principal === undefined) return null;
 
-  const puedeEnviar = acepta && valor !== null && !enviando;
+  const consiente = consentimientoVigente || acepta;
+  const puedeEnviar = consiente && valor !== null && !enviando;
 
   return (
     <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
@@ -103,17 +113,33 @@ export function EncuestaSatisfaccion({
         </label>
       )}
 
-      <label className="mt-3 flex items-start gap-2">
-        <input
-          type="checkbox"
-          checked={acepta}
-          onChange={(e) => {
-            setAcepta(e.target.checked);
-          }}
-          className="mt-0.5 shrink-0"
-        />
-        <span className="text-[11px] leading-snug text-slate-600">{instrumento.consentText}</span>
-      </label>
+      {consentimientoVigente ? (
+        <p className="mt-3 text-[11px] leading-snug text-slate-500">
+          Participas en el estudio con tu consentimiento.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setAcepta(false);
+              onRetirarConsentimiento();
+            }}
+            className="font-semibold underline"
+          >
+            Retirarlo
+          </button>
+        </p>
+      ) : (
+        <label className="mt-3 flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={acepta}
+            onChange={(e) => {
+              setAcepta(e.target.checked);
+            }}
+            className="mt-0.5 shrink-0"
+          />
+          <span className="text-[11px] leading-snug text-slate-600">{instrumento.consentText}</span>
+        </label>
+      )}
 
       {fallo && (
         <p className="mt-2 text-xs text-rose-600">
@@ -127,7 +153,7 @@ export function EncuestaSatisfaccion({
           disabled={!puedeEnviar}
           onClick={() => {
             if (valor === null) return;
-            onEnviar({ rating: valor, comment: comentario, consentGiven: acepta });
+            onEnviar({ rating: valor, comment: comentario, consentGiven: consiente });
           }}
           className="rounded-xl bg-blue-600 px-3 py-1.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
         >
