@@ -1,5 +1,6 @@
 import { primero, todos } from '../../dom.js';
-import { SIN_INSUMOS, type Insumos } from '../../../domain/insumos.js';
+import type { Insumos } from '../../../domain/insumos.js';
+import { categoriaGruesaDe, insumosDe } from './insumos.js';
 import type {
   InsercionBadge,
   MarketplaceAdapter,
@@ -86,22 +87,13 @@ export class AliExpressAdapter implements MarketplaceAdapter {
     return salida;
   }
 
-  /**
-   * Sin implementar para AliExpress. Devolver nada deja las dos caracteristicas sin
-   * resolver, que es el comportamiento correcto: inventar campos las moveria en
-   * contra del vendedor sin haber medido.
-   */
-  insumos(_doc: Document): Insumos {
-    return SIN_INSUMOS;
+  /** Tienda y resenas renderizadas. Lo que no se lee se omite: ver ./insumos.ts. */
+  insumos(doc: Document): Insumos {
+    return insumosDe(doc);
   }
 
-  /**
-   * Sin lectura de migas de pan para esta plataforma, igual que `insumos`.
-   * Devolver vacio deja el evento sin categoria, que es exactamente lo que
-   * corresponde: inventarla seria peor que no tenerla.
-   */
-  categoriaGruesa(_doc: Document): string {
-    return '';
+  categoriaGruesa(doc: Document): string {
+    return categoriaGruesaDe(doc);
   }
 
   selectoresDeCompra(): readonly string[] {
