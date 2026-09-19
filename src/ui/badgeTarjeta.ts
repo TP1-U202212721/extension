@@ -33,7 +33,10 @@ export const insertarBadgeTarjeta = (tarjeta: TarjetaListado): HTMLAnchorElement
 
   const doc = card.ownerDocument;
   const vista = doc.defaultView;
-  if (vista !== null && vista.getComputedStyle(card).position === 'static') {
+  // Sin posicion propia, el enlace absoluto se ubicaria respecto de otro ancestro.
+  // Un valor vacio cuenta como `static`: es lo que devuelven algunos entornos.
+  const posicion = vista?.getComputedStyle(card).position ?? '';
+  if (posicion === '' || posicion === 'static') {
     (card as HTMLElement).style.position = 'relative';
   }
 
