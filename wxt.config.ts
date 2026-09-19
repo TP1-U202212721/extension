@@ -1,6 +1,5 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
-import type { Plugin } from 'vite';
 
 // Identificador permanente en AMO. Cambiarlo crea un add-on distinto y abandona
 // la configuracion de todos los usuarios: no se toca.
@@ -30,10 +29,17 @@ const REM = /(-?\d*\.?\d+)rem\b/g;
 export const remAPx = (css: string): string =>
   css.replace(REM, (_, n: string) => `${String(Number.parseFloat(n) * 16)}px`);
 
-const cssSinRem = (): Plugin => ({
+/** Lo minimo del bundle de Rollup que toca el plugin; `vite` no es dependencia directa. */
+interface ArchivoDelBundle {
+  type: string;
+  fileName: string;
+  source?: unknown;
+}
+
+const cssSinRem = () => ({
   name: 'scamshield-css-sin-rem',
-  enforce: 'post',
-  generateBundle(_opciones, bundle) {
+  enforce: 'post' as const,
+  generateBundle(_opciones: unknown, bundle: Record<string, ArchivoDelBundle>) {
     for (const archivo of Object.values(bundle)) {
       if (archivo.type === 'asset' && archivo.fileName.endsWith('.css') && typeof archivo.source === 'string') {
         archivo.source = remAPx(archivo.source);
