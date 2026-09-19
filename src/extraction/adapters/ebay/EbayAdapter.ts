@@ -1,14 +1,34 @@
 import { primero, todos } from '../../dom.js';
-import { SIN_INSUMOS, type Insumos } from '../../../domain/insumos.js';
-import type { MarketplaceAdapter, Publicacion, TarjetaListado } from '../../MarketplaceAdapter.js';
+import type { Insumos } from '../../../domain/insumos.js';
+import type {
+  InsercionBadge,
+  MarketplaceAdapter,
+  Publicacion,
+  TarjetaListado,
+} from '../../MarketplaceAdapter.js';
+import { categoriaGruesaDe, insumosDe } from './insumos.js';
 
 const ID = /\/itm\/(?:.*\/)?(\d{11,12})(?:[/?]|$)/;
 
-/** Donde anclar el badge dentro de la ficha. Cascada: si nada matchea, posicion fija. */
-const ANCLA_BADGE: readonly string[] = ['.x-buybox__cta', '.x-buybox', '[data-testid="x-buybox"]', '#mainContent'];
+/**
+ * Donde anclar el badge dentro de la ficha: justo antes de los botones "Buy It
+ * Now" / "Add to cart". Cascada: si nada matchea, posicion fija. Verificado
+ * contra fichas reales de ebay.com (2026-09-19).
+ */
+const ANCLA_BADGE: readonly string[] = ['[data-testid="x-buybox-cta"]', '.x-buybox-cta', '.x-buybox__cta'];
 
-/** Tarjetas de listado y carrusel. Solo se les inserta un enlace, nunca un veredicto. */
-const TARJETAS: readonly string[] = ['li.s-item', 'li.brwrvr__item-card', '.str-item-card', '[data-testid="item-card"]'];
+/**
+ * Tarjetas de listado y carrusel. Solo se les inserta un enlace, nunca un
+ * veredicto. La busqueda de ebay.com usa `li.s-card` desde 2026; `li.s-item`
+ * queda para los sitios que aun no migraron.
+ */
+const TARJETAS: readonly string[] = [
+  'li.s-card',
+  'li.s-item',
+  'li.brwrvr__item-card',
+  '.str-item-card',
+  '[data-testid="item-card"]',
+];
 const ENLACE_FICHA = 'a[href*="/itm/"]';
 
 /**
@@ -52,35 +72,31 @@ export class EbayAdapter implements MarketplaceAdapter {
     return primero(doc, ANCLA_BADGE);
   }
 
+  insercionBadge(_ancla: Element): InsercionBadge {
+    return 'antes';
+  }
+
   tarjetas(doc: Document): readonly TarjetaListado[] {
     const vistos = new Set<string>();
     const salida: TarjetaListado[] = [];
     for (const tarjeta of todos(doc, TARJETAS)) {
       const enlace = tarjeta.querySelector<HTMLAnchorElement>(ENLACE_FICHA);
       const href = enlace?.href ?? '';
-      if (href === '' || vistos.has(href)) continue;
+      // La busqueda trae una tarjeta plantilla que enlaza a /itm/123456: no es un
+      // articulo. Solo cuentan los enlaces con un item id real.
+      if (href === '' || vistos.has(href) || !ID.test(href)) continue;
       vistos.add(href);
       salida.push({ elemento: tarjeta, href });
     }
     return salida;
   }
 
-  /**
-   * Sin implementar para eBay. Devolver nada deja las dos caracteristicas sin
-   * resolver, que es el comportamiento correcto: inventar campos las moveria en
-   * contra del vendedor sin haber medido.
-   */
-  insumos(_doc: Document): Insumos {
-    return SIN_INSUMOS;
+  insumos(doc: Document): Insumos {
+    return insumosDe(doc);
   }
 
-  /**
-   * Sin lectura de migas de pan para esta plataforma, igual que `insumos`.
-   * Devolver vacio deja el evento sin categoria, que es exactamente lo que
-   * corresponde: inventarla seria peor que no tenerla.
-   */
-  categoriaGruesa(_doc: Document): string {
-    return '';
+  categoriaGruesa(doc: Document): string {
+    return categoriaGruesaDe(doc);
   }
 
   selectoresDeCompra(): readonly string[] {

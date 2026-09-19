@@ -1,6 +1,7 @@
 import { primero, todos } from '../../dom.js';
-import { SIN_INSUMOS, type Insumos } from '../../../domain/insumos.js';
+import type { Insumos } from '../../../domain/insumos.js';
 import type { MarketplaceAdapter, Publicacion, TarjetaListado } from '../../MarketplaceAdapter.js';
+import { categoriaGruesaDe, insumosDe } from './insumos.js';
 
 const ID = /\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/;
 
@@ -64,22 +65,12 @@ export class AmazonAdapter implements MarketplaceAdapter {
     return salida;
   }
 
-  /**
-   * Sin implementar para Amazon. Devolver nada deja las dos caracteristicas sin
-   * resolver, que es el comportamiento correcto: inventar campos las moveria en
-   * contra del vendedor sin haber medido.
-   */
-  insumos(_doc: Document): Insumos {
-    return SIN_INSUMOS;
+  insumos(doc: Document): Insumos {
+    return insumosDe(doc);
   }
 
-  /**
-   * Sin lectura de migas de pan para esta plataforma, igual que `insumos`.
-   * Devolver vacio deja el evento sin categoria, que es exactamente lo que
-   * corresponde: inventarla seria peor que no tenerla.
-   */
-  categoriaGruesa(_doc: Document): string {
-    return '';
+  categoriaGruesa(doc: Document): string {
+    return categoriaGruesaDe(doc);
   }
 
   selectoresDeCompra(): readonly string[] {
