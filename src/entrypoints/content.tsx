@@ -4,6 +4,7 @@ import { browser } from 'wxt/browser';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { adapterPara } from '../extraction/registry.js';
+import { esperarElemento } from '../extraction/dom.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import {
   esEncuestaEnviada,
@@ -30,6 +31,12 @@ interface Evaluado {
   readonly detalles: Detalles;
 }
 import '../ui/tailwind.css';
+
+/**
+ * Cuanto esperar a que aparezca el bloque de compra antes de fijar el badge en
+ * una esquina. Temu lo pinta tarde, y a veces detras de una verificacion.
+ */
+const ESPERA_ANCLA_MS = 10_000;
 
 const SIN_RESPUESTA: Verdict = {
   kind: 'evidencia-insuficiente',
@@ -107,8 +114,14 @@ export default defineContentScript({
     emisor.fichaDetectada();
 
     // Al cargar la pagina NO se lee el DOM ni se consulta nada: solo se inserta
-    // el badge. La extraccion ocurre cuando el comprador hace clic.
-    const ancla = adapter.anclaBadge(document);
+    // el badge. La extraccion ocurre cuando el comprador hace clic. Si el bloque
+    // de compra todavia no esta pintado, se espera un poco antes de caer en la
+    // posicion fija de respaldo.
+    const ancla = await esperarElemento(
+      document.body,
+      () => adapter.anclaBadge(document),
+      ESPERA_ANCLA_MS,
+    );
 
     const evaluar = async (): Promise<Evaluado | null> => {
       const mensaje: EvaluarMensaje = {

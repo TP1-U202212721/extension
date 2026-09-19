@@ -32,3 +32,36 @@ export const todos = (raiz: ParentNode, cascada: readonly string[]): readonly El
   }
   return [];
 };
+
+/**
+ * Espera a que `buscar` devuelva un elemento, mirando cada cambio del DOM.
+ * Resuelve null si no aparece dentro de `msMaximo`.
+ *
+ * Temu (y cualquier pagina que hidrate tarde o anteponga una verificacion) pinta
+ * el boton de compra despues de `document_idle`. Sin esta espera el badge caia
+ * en la posicion fija de respaldo y ahi se quedaba.
+ */
+export const esperarElemento = (
+  raiz: Node,
+  buscar: () => Element | null,
+  msMaximo: number,
+): Promise<Element | null> => {
+  const ya = buscar();
+  if (ya !== null) return Promise.resolve(ya);
+
+  return new Promise((resolver) => {
+    const terminar = (el: Element | null): void => {
+      observador.disconnect();
+      clearTimeout(reloj);
+      resolver(el);
+    };
+    const observador = new MutationObserver(() => {
+      const el = buscar();
+      if (el !== null) terminar(el);
+    });
+    const reloj = setTimeout(() => {
+      terminar(buscar());
+    }, msMaximo);
+    observador.observe(raiz, { childList: true, subtree: true });
+  });
+};
