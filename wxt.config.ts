@@ -48,11 +48,9 @@ export default defineConfig({
     // Sin ella la cola solo se vaciaria por umbral y lo acumulado podria
     // quedarse esperando indefinidamente.
     permissions: ['storage', 'cookies', 'alarms'],
-    // El primer host es el del cliente web, donde vive la cookie: sin el, cookies.get
-    // devuelve null y la extension nunca ve la sesion aunque el usuario haya entrado.
     host_permissions: [
-      'https://scamshield.ryzeon.me/*',
       'https://scamshield-api.ryzeon.me/*',
+      'https://scamshield.ryzeon.me/*',
       'http://localhost:8081/*',
     ],
 
