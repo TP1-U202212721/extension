@@ -1,6 +1,12 @@
-import { primero, todos } from '../../dom.js';
-import { SIN_INSUMOS, type Insumos } from '../../../domain/insumos.js';
-import type { MarketplaceAdapter, Publicacion, TarjetaListado } from '../../MarketplaceAdapter.js';
+import { todos } from '../../dom.js';
+import type { Insumos } from '../../../domain/insumos.js';
+import type {
+  InsercionBadge,
+  MarketplaceAdapter,
+  Publicacion,
+  TarjetaListado,
+} from '../../MarketplaceAdapter.js';
+import { categoriaGruesaDe, insumosDe } from './insumos.js';
 
 /**
  * Ficha de Temu: `/pe/<slug>-g-601103619029359.html` o `/pe-es/...`. El numero
@@ -25,14 +31,21 @@ const ENLACE_FICHA = 'a[href*="-g-"]';
 const MAX_NIVELES = 8;
 
 /**
- * Donde anclar el badge en la ficha. PENDIENTE: Temu redirige a la portada a
- * cualquier navegador automatizado, asi que la ficha no se pudo capturar para
- * verificar selectores. Sin ancla, el content script fija el badge en una
- * esquina de la ventana: se ve y funciona, solo que no junto al boton de compra.
+ * El boton principal de compra no tiene ningun atributo estable: es un
+ * `div[role=button]` con clases ofuscadas y el texto "Add to cart!" (a veces con
+ * el descuento delante: "-37% now! Add to cart!"). Se busca por texto. Los
+ * "Add to cart" de las tarjetas de recomendacion llevan `data-type="goodsCart"`
+ * y se descartan. El badge va justo ANTES del boton.
+ *
+ * Verificado contra una ficha real de temu.com/pe-en el 2026-09-19.
  */
-const ANCLA_BADGE: readonly string[] = [];
+const BOTON = '[role="button"]:not([data-type="goodsCart"])';
+const TEXTO_COMPRA = /(add to cart|agregar al carrito|añadir al carrito|comprar ahora|buy now)/i;
 
-/** Controles de compra. PENDIENTE por lo mismo que el ancla. */
+/**
+ * Controles de compra para avisar al hacer clic. Temu no da un selector CSS
+ * estable para su boton, asi que no se intercepta: el badge ya queda al lado.
+ */
 const COMPRA: readonly string[] = [];
 
 /** Goods ids distintos enlazados dentro de un elemento. */
@@ -80,7 +93,15 @@ export class TemuAdapter implements MarketplaceAdapter {
   }
 
   anclaBadge(doc: Document): Element | null {
-    return ANCLA_BADGE.length === 0 ? null : primero(doc, ANCLA_BADGE);
+    for (const boton of doc.querySelectorAll(BOTON)) {
+      if (boton.closest(ENLACE_FICHA) !== null) continue;
+      if (TEXTO_COMPRA.test(boton.textContent)) return boton;
+    }
+    return null;
+  }
+
+  insercionBadge(_ancla: Element): InsercionBadge {
+    return 'antes';
   }
 
   tarjetas(doc: Document): readonly TarjetaListado[] {
@@ -98,17 +119,12 @@ export class TemuAdapter implements MarketplaceAdapter {
     return salida;
   }
 
-  /**
-   * PENDIENTE hasta tener fichas reales. Devolver nada deja reputacion y resenas
-   * sin resolver, que es lo correcto: inventar campos los moveria en contra del
-   * vendedor sin haber medido.
-   */
-  insumos(_doc: Document): Insumos {
-    return SIN_INSUMOS;
+  insumos(doc: Document): Insumos {
+    return insumosDe(doc);
   }
 
-  categoriaGruesa(_doc: Document): string {
-    return '';
+  categoriaGruesa(doc: Document): string {
+    return categoriaGruesaDe(doc);
   }
 
   selectoresDeCompra(): readonly string[] {

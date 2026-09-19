@@ -56,3 +56,71 @@ describe('Temu: tarjetas de listado sobre la pagina real', () => {
     expect(new Set(tarjetas.map((t) => t.href)).size).toBe(tarjetas.length);
   });
 });
+
+/**
+ * Ficha REAL de temu.com/pe-en (goods 605502004140234) abierta en un navegador
+ * real el 2026-09-19, reducida: el `window.rawData` conserva solo los campos que
+ * se leen, sin autoria de las resenas. Es la misma fixture que usa el backend.
+ */
+describe('Temu: ficha real', () => {
+  const html = readFileSync(resolve(process.cwd(), 'tests/fixtures/temu/ficha-con-resenas.html'), 'utf8');
+  const URL_FICHA = 'https://www.temu.com/pe-en/aretes-g-605502004140234.html';
+
+  /** happy-dom deja fijar la URL del documento; los tipos de `window` no lo saben. */
+  const conUrl = window as unknown as { happyDOM: { setURL: (url: string) => void } };
+
+  const cargar = (contenido: string, url: string): Document => {
+    conUrl.happyDOM.setURL(url);
+    document.documentElement.innerHTML = new DOMParser()
+      .parseFromString(contenido, 'text/html')
+      .documentElement.innerHTML;
+    return document;
+  };
+
+  it('ancla el badge antes del boton principal, no en los de las recomendaciones', () => {
+    const doc = cargar(html, URL_FICHA);
+    const ancla = temu.anclaBadge(doc);
+    expect(ancla?.textContent).toContain('Add to cart!');
+    expect(ancla?.getAttribute('data-type')).toBeNull();
+    expect(ancla !== null && temu.insercionBadge(ancla)).toBe('antes');
+  });
+
+  it('lee la tienda: puntuacion, valoraciones y ventas de la tienda', () => {
+    const { vendedor } = temu.insumos(cargar(html, URL_FICHA));
+    expect(vendedor).toEqual({
+      sellerName: 'Ldeal and you',
+      platform: 'Temu',
+      ratingAverage: 4.8,
+      ratingCount: 1620,
+      completedSales: 83_000,
+    });
+  });
+
+  it('lee las resenas con sus estrellas, sin autoria', () => {
+    const { resenas, categoria } = temu.insumos(cargar(html, URL_FICHA));
+    expect(resenas).toHaveLength(4);
+    expect(resenas.every((r) => r.rating === 5)).toBe(true);
+    expect(resenas.map((r) => r.text)).toContain('Está hermoso, me gusta mucho.');
+    expect(categoria).toBe("Women's Jewelry");
+  });
+
+  it('la categoria gruesa son los dos primeros escalones sin Home', () => {
+    expect(temu.categoriaGruesa(cargar(html, URL_FICHA))).toBe("Jewelry & Accessories/Women's Jewelry");
+  });
+
+  /** Temu navega sin recargar: el script puede ser de la ficha anterior. */
+  it('no usa datos que son de otra publicacion', () => {
+    const doc = cargar(html, 'https://www.temu.com/pe-en/otro-g-601099512345678.html');
+    expect(temu.insumos(doc)).toEqual({ vendedor: null, resenas: [], categoria: '' });
+  });
+
+  it('una tienda sin puntuacion omite la puntuacion, no manda cero', () => {
+    const { vendedor } = temu.insumos(cargar(html.replace('"mallStar":4.8', '"mallStar":0'), URL_FICHA));
+    expect(vendedor).not.toHaveProperty('ratingAverage');
+  });
+
+  it('sin estado inicial no hay insumos', () => {
+    const doc = cargar('<html><body><h1>Algo</h1></body></html>', URL_FICHA);
+    expect(temu.insumos(doc).vendedor).toBeNull();
+  });
+});
