@@ -76,6 +76,18 @@ interface Props {
 type FaseEncuesta = 'oculta' | 'visible' | 'enviando' | 'fallo' | 'gracias';
 
 /**
+ * Los paneles desplegados flotan sobre la pagina, pegados al borde derecho de la
+ * ventana, en vez de colgar del badge.
+ *
+ * El badge vive dentro de la columna de compra del marketplace, que suele ser mas
+ * angosta que el panel y tiene `overflow: hidden`: colgado de ahi, el panel salia
+ * recortado por la izquierda y por abajo (AliExpress). Fijo en la ventana ninguna
+ * columna lo recorta, y con alto maximo y scroll propio cabe en cualquier pantalla.
+ */
+const FLOTANTE =
+  'fixed right-4 top-4 z-[2147483647] max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-y-auto';
+
+/**
  * Badge insertado en la propia ficha del producto.
  *
  * El analisis es deliberadamente diferido: al cargar la pagina no se lee nada ni
@@ -223,7 +235,7 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
       </button>
 
       {abierto && estado.fase === 'requiere-sesion' && (
-        <div className="absolute right-0 z-[2147483647] mt-2 w-[320px] rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
+        <div className={`${FLOTANTE} w-[320px] rounded-2xl border border-slate-200 bg-white p-4 shadow-lg`}>
           <p className="text-sm font-semibold text-slate-800">
             Inicia sesion para obtener el reporte
           </p>
@@ -246,7 +258,7 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
       )}
 
       {abierto && estado.fase === 'listo' && (
-        <div className="absolute right-0 z-[2147483647] mt-2 w-[380px]">
+        <div className={`${FLOTANTE} w-[380px] rounded-2xl`}>
           <VerdictPanel
             verdict={estado.verdict}
             features={estado.features}

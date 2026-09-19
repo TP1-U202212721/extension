@@ -60,7 +60,7 @@ export function VerdictPanel({
   const pendientes = FEATURE_IDS.filter((id) => !esConocida(features[id]));
 
   return (
-    <section className="w-[380px] rounded-2xl border border-slate-200 bg-white p-5 shadow-lg font-sans text-slate-900">
+    <section className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg font-sans text-slate-900">
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-extrabold text-blue-700">ScamShield</h1>
