@@ -1,5 +1,6 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
+import type { Plugin } from 'vite';
 
 // Identificador permanente en AMO. Cambiarlo crea un add-on distinto y abandona
 // la configuracion de todos los usuarios: no se toca.
@@ -18,6 +19,29 @@ export const MARKETPLACE_MATCHES = [
   '*://*.temu.com/*',
 ] as const;
 
+/**
+ * Pasa los `rem` del CSS compilado a `px` (1rem = 16px).
+ *
+ * El shadow root aisla los estilos, pero `rem` sigue refiriendose a la fuente
+ * del `<html>` de la PAGINA. Temu la pone en 100px, y el badge de Tailwind salia
+ * seis veces mas grande. En px, el badge mide lo mismo en cualquier sitio.
+ */
+const REM = /(-?\d*\.?\d+)rem\b/g;
+export const remAPx = (css: string): string =>
+  css.replace(REM, (_, n: string) => `${String(Number.parseFloat(n) * 16)}px`);
+
+const cssSinRem = (): Plugin => ({
+  name: 'scamshield-css-sin-rem',
+  enforce: 'post',
+  generateBundle(_opciones, bundle) {
+    for (const archivo of Object.values(bundle)) {
+      if (archivo.type === 'asset' && archivo.fileName.endsWith('.css') && typeof archivo.source === 'string') {
+        archivo.source = remAPx(archivo.source);
+      }
+    }
+  },
+});
+
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
@@ -31,7 +55,7 @@ export default defineConfig({
   imports: false,
 
   vite: () => ({
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss(), cssSinRem()],
   }),
 
   manifest: ({ browser }) => ({
