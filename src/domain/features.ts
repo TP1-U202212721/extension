@@ -44,7 +44,31 @@ export type FeatureId = (typeof FEATURE_IDS)[number];
 export type FeatureValue<T> =
   | { readonly kind: 'conocido'; readonly valor: T; readonly evidencia: string }
   | { readonly kind: 'no-aplica'; readonly motivo: string }
-  | { readonly kind: 'indeterminado'; readonly motivo: string };
+  | {
+      readonly kind: 'indeterminado';
+      readonly motivo: string;
+      readonly causa?: CausaIndeterminada;
+    };
+
+/**
+ * Por que quedo sin resolver, en forma legible por una maquina.
+ *
+ * `motivo` es una frase para el comprador y cambia con la redaccion; la causa es
+ * un simbolo estable. Existe porque la analitica de uso tiene que reportar el
+ * motivo de cada caracteristica indeterminada como un codigo
+ * (`EUndeterminedReason`), y deducirlo del texto del motivo seria adivinar.
+ *
+ * Es OPCIONAL a proposito: donde no se sepa, se omite y el evento viaja con
+ * "motivo no clasificado". Inventar una causa es peor que no tenerla.
+ */
+export type CausaIndeterminada =
+  | 'sin-selector'
+  | 'seccion-ausente'
+  | 'sin-extractor'
+  | 'valor-ilegible'
+  | 'tiempo-agotado'
+  | 'fuente-con-error'
+  | 'requiere-sesion';
 
 export const conocido = <T>(valor: T, evidencia: string): FeatureValue<T> => ({
   kind: 'conocido',
@@ -54,9 +78,10 @@ export const conocido = <T>(valor: T, evidencia: string): FeatureValue<T> => ({
 
 export const noAplica = <T>(motivo: string): FeatureValue<T> => ({ kind: 'no-aplica', motivo });
 
-export const indeterminado = <T>(motivo: string): FeatureValue<T> => ({
+export const indeterminado = <T>(motivo: string, causa?: CausaIndeterminada): FeatureValue<T> => ({
   kind: 'indeterminado',
   motivo,
+  ...(causa !== undefined && { causa }),
 });
 
 /**

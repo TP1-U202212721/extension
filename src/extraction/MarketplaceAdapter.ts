@@ -63,4 +63,30 @@ export interface MarketplaceAdapter {
    * Lo que no se pueda leer se OMITE; nunca se rellena.
    */
   insumos(doc: Document): Insumos;
+
+  /**
+   * Categoria GRUESA de la ficha, para la analitica de uso. Vacia si no se leyo.
+   *
+   * Gruesa quiere decir los primeros escalones de las migas de pan
+   * ("electronica/audio"), no el ultimo. El ultimo es casi el titulo del
+   * producto, y el titulo no se emite: ver `src/domain/analitica/sitio.ts`.
+   *
+   * Es una lectura distinta de la de `insumos`, que si toma el escalon mas
+   * especifico porque el clasificador de resenas lo usa como contexto y no sale
+   * del navegador salvo hacia ese analizador.
+   */
+  categoriaGruesa(doc: Document): string;
+
+  /**
+   * Selectores de los controles de compra de la ficha ("Comprar ahora",
+   * "Agregar al carrito").
+   *
+   * NO se pulsan ni se leen: solo sirven para reconocer un clic del comprador y
+   * poder decir si siguio hacia el pago pese a una advertencia de riesgo, que es
+   * la pregunta central de la tesis. La extension no automatiza nada de la
+   * compra.
+   *
+   * Vacio es una respuesta valida: sin selectores, esa interaccion no se emite.
+   */
+  selectoresDeCompra(): readonly string[];
 }

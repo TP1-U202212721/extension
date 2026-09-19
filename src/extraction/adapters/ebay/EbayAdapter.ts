@@ -12,6 +12,18 @@ const TARJETAS: readonly string[] = ['li.s-item', 'li.brwrvr__item-card', '.str-
 const ENLACE_FICHA = 'a[href*="/itm/"]';
 
 /**
+ * Controles de compra. Se usan SOLO para reconocer el clic del comprador y saber
+ * si siguio hacia el pago pese a la advertencia. Nunca se pulsan.
+ */
+const COMPRA: readonly string[] = [
+  '[data-testid="x-bin-action"] a',
+  '[data-testid="x-bin-action"] button',
+  '#binBtn_btn',
+  '#atcBtn_btn_1',
+  'a[href*="/buy/"]',
+];
+
+/**
  * Adaptador de eBay.
  *
  * Ya NO extrae caracteristicas: eso lo hace el backend sobre el documento que
@@ -60,5 +72,18 @@ export class EbayAdapter implements MarketplaceAdapter {
    */
   insumos(_doc: Document): Insumos {
     return SIN_INSUMOS;
+  }
+
+  /**
+   * Sin lectura de migas de pan para esta plataforma, igual que `insumos`.
+   * Devolver vacio deja el evento sin categoria, que es exactamente lo que
+   * corresponde: inventarla seria peor que no tenerla.
+   */
+  categoriaGruesa(_doc: Document): string {
+    return '';
+  }
+
+  selectoresDeCompra(): readonly string[] {
+    return COMPRA;
   }
 }

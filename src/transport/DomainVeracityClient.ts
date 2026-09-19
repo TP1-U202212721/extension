@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '../api.js';
 import { leerRespuesta, type Sobre } from './sobre.js';
 import { conocido, indeterminado, type FeatureValue, type Veracidad } from '../domain/features.js';
+import type { DesenlaceLlamada } from './RiskEngineClient.js';
 
 /** Una senal del analizador, tal como la devuelve el backend. */
 export interface SenalDominio {
@@ -34,6 +35,8 @@ export interface DetalleDominio {
 export interface ResultadoDominio {
   readonly feature: FeatureValue<Veracidad>;
   readonly detalle: DetalleDominio | null;
+  /** Como termino la llamada. Lo consume la analitica de uso, no la presentacion. */
+  readonly desenlace: DesenlaceLlamada;
 }
 
 /**
@@ -106,16 +109,22 @@ export const consultarVeracidadDeDominio = async (
       return {
         feature: indeterminado(
           mensaje === '' ? 'El analizador de dominio no respondio.' : mensaje,
+          'fuente-con-error',
         ),
         detalle: null,
+        desenlace: 'error',
       };
     }
 
     const veracity = item.numOr('veracity', 0);
     if (!esVeracidad(veracity)) {
       return {
-        feature: indeterminado('El analizador de dominio devolvio un nivel no reconocido.'),
+        feature: indeterminado(
+          'El analizador de dominio devolvio un nivel no reconocido.',
+          'valor-ilegible',
+        ),
         detalle: null,
+        desenlace: 'error',
       };
     }
 
@@ -135,12 +144,16 @@ export const consultarVeracidadDeDominio = async (
       limitations: item.cadenas('limitations'),
     };
 
-    return { feature: aFeature(detalle), detalle };
+    return { feature: aFeature(detalle), detalle, desenlace: 'correcto' };
   } catch {
     // Timeout o red caida. Nunca favorable: la caracteristica queda sin resolver.
     return {
-      feature: indeterminado('No se pudo consultar la veracidad del dominio a tiempo.'),
+      feature: indeterminado(
+        'No se pudo consultar la veracidad del dominio a tiempo.',
+        'tiempo-agotado',
+      ),
       detalle: null,
+      desenlace: abortar.signal.aborted ? 'tiempo-agotado' : 'error',
     };
   } finally {
     clearTimeout(reloj);

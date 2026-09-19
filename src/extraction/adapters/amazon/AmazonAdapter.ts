@@ -12,6 +12,17 @@ const TARJETAS: readonly string[] = ['div[data-asin][data-component-type="s-sear
 const ENLACE_FICHA = 'a[href*="/dp/"], a[href*="/gp/product/"]';
 
 /**
+ * Controles de compra. Se usan SOLO para reconocer el clic del comprador y saber
+ * si siguio hacia el pago pese a la advertencia. Nunca se pulsan.
+ */
+const COMPRA: readonly string[] = [
+  '#buy-now-button',
+  '#add-to-cart-button',
+  'input[name="submit.buy-now"]',
+  'input[name="submit.add-to-cart"]',
+];
+
+/**
  * Adaptador de Amazon.
  *
  * Ya NO extrae caracteristicas: eso lo hace el backend sobre el documento que
@@ -60,5 +71,18 @@ export class AmazonAdapter implements MarketplaceAdapter {
    */
   insumos(_doc: Document): Insumos {
     return SIN_INSUMOS;
+  }
+
+  /**
+   * Sin lectura de migas de pan para esta plataforma, igual que `insumos`.
+   * Devolver vacio deja el evento sin categoria, que es exactamente lo que
+   * corresponde: inventarla seria peor que no tenerla.
+   */
+  categoriaGruesa(_doc: Document): string {
+    return '';
+  }
+
+  selectoresDeCompra(): readonly string[] {
+    return COMPRA;
   }
 }

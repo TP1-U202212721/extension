@@ -3,8 +3,8 @@ import type {
   Publicacion,
   TarjetaListado,
 } from '../../MarketplaceAdapter.js';
-import { ANCLA_BADGE, TARJETAS, primero } from './selectors.js';
-import { insumosDeMercadoLibre } from './insumos.js';
+import { ANCLA_BADGE, COMPRA, TARJETAS, primero } from './selectors.js';
+import { categoriaGruesaDe, insumosDeMercadoLibre } from './insumos.js';
 import type { Insumos } from '../../../domain/insumos.js';
 
 /**
@@ -82,5 +82,13 @@ export class MercadoLibreAdapter implements MarketplaceAdapter {
 
   insumos(doc: Document): Insumos {
     return insumosDeMercadoLibre(doc);
+  }
+
+  categoriaGruesa(doc: Document): string {
+    return categoriaGruesaDe(doc);
+  }
+
+  selectoresDeCompra(): readonly string[] {
+    return COMPRA;
   }
 }

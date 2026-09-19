@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ShieldAlert, ShieldCheck, ShieldQuestion, CircleHelp, CircleCheck } from 'lucide-react';
 import {
   FEATURE_IDS,
@@ -25,6 +26,14 @@ interface Props {
   /** Evidencia de cada analizador del backend, si respondieron. */
   readonly detalles?: Detalles;
   readonly onCerrar?: () => void;
+  /**
+   * La encuesta de satisfaccion, cuando toca ofrecerla. Entra como nodo y no
+   * como bandera para que el panel no sepa nada del modulo de encuesta: aqui
+   * solo se decide DONDE va, que es debajo del veredicto y encima del aviso.
+   */
+  readonly encuesta?: ReactNode;
+  /** El comprador abrio el desglose de senales de un analizador. */
+  readonly onDetalleAbierto?: () => void;
 }
 
 /**
@@ -32,7 +41,15 @@ interface Props {
  * se verifico, que quedo sin resolver y que acredita cada caracteristica. La
  * ausencia de informacion se muestra como tal, nunca como seguridad.
  */
-export function VerdictPanel({ verdict, features, plataforma, detalles, onCerrar }: Props) {
+export function VerdictPanel({
+  verdict,
+  features,
+  plataforma,
+  detalles,
+  onCerrar,
+  encuesta,
+  onDetalleAbierto,
+}: Props) {
   const documento = detalles?.documento ?? null;
   const dominio = detalles?.dominio ?? null;
   const vendedor = detalles?.vendedor ?? null;
@@ -86,9 +103,9 @@ export function VerdictPanel({ verdict, features, plataforma, detalles, onCerrar
         </p>
       )}
 
-      {dominio != null && <AnalisisDeDominio d={dominio} />}
+      {dominio != null && <AnalisisDeDominio d={dominio} onAbrir={onDetalleAbierto} />}
 
-      {vendedor != null && <AnalisisDelVendedor d={vendedor} />}
+      {vendedor != null && <AnalisisDelVendedor d={vendedor} onAbrir={onDetalleAbierto} />}
 
       <ListaCaracteristicas titulo="Se verifico" ids={resueltas} features={features} verificado />
       <ListaCaracteristicas
@@ -97,6 +114,8 @@ export function VerdictPanel({ verdict, features, plataforma, detalles, onCerrar
         features={features}
         verificado={false}
       />
+
+      {encuesta}
 
       <p className="mt-4 border-t border-slate-100 pt-3 text-[11px] leading-snug text-slate-500">
         {AVISO}
@@ -152,10 +171,21 @@ function ListaCaracteristicas({
  * aparte y con el mismo peso visual que las demas: que algo no se haya podido
  * comprobar es informacion para el comprador, no un detalle a esconder.
  */
-function AnalisisDeDominio({ d }: { readonly d: DetalleDominio }) {
+function AnalisisDeDominio({
+  d,
+  onAbrir,
+}: {
+  readonly d: DetalleDominio;
+  readonly onAbrir?: (() => void) | undefined;
+}) {
   const cobertura = Math.round(d.coverage * 100);
   return (
-    <details className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+    <details
+      className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+      onToggle={(e) => {
+        if (e.currentTarget.open) onAbrir?.();
+      }}
+    >
       <summary className="cursor-pointer list-none text-sm font-bold text-slate-800">
         Analisis del dominio · {d.registrableDomain}
       </summary>
@@ -193,10 +223,21 @@ function AnalisisDeDominio({ d }: { readonly d: DetalleDominio }) {
  * AnalisisDeDominio: el comprador necesita ver las senales que respaldan
  * la estimacion, no solo el nivel final.
  */
-function AnalisisDelVendedor({ d }: { readonly d: DetalleVendedor }) {
+function AnalisisDelVendedor({
+  d,
+  onAbrir,
+}: {
+  readonly d: DetalleVendedor;
+  readonly onAbrir?: (() => void) | undefined;
+}) {
   const cobertura = Math.round(d.coverage * 100);
   return (
-    <details className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+    <details
+      className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+      onToggle={(e) => {
+        if (e.currentTarget.open) onAbrir?.();
+      }}
+    >
       <summary className="cursor-pointer list-none text-sm font-bold text-slate-800">
         Reputacion del vendedor · {d.sellerName}
       </summary>

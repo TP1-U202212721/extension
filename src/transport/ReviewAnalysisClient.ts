@@ -7,6 +7,7 @@ import {
   type FeatureValue,
 } from '../domain/features.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
+import type { DesenlaceLlamada } from './RiskEngineClient.js';
 import { soloLoLeido, type ResenaLeida } from '../domain/insumos.js';
 
 /** Limites del backend (`ReviewAnalysis:MaxReviews` / `MaxReviewLength`). */
@@ -34,6 +35,8 @@ export interface DetalleResenas {
 export interface ResultadoResenas {
   readonly feature: FeatureValue<Autenticidad>;
   readonly detalle: DetalleResenas | null;
+  /** Como termino la llamada. Lo consume la analitica de uso, no la presentacion. */
+  readonly desenlace: DesenlaceLlamada;
 }
 
 const TIMEOUT_MS = 15000;
@@ -70,7 +73,11 @@ export const consultarAutenticidad = async (
 ): Promise<ResultadoResenas> => {
   const token = await tokens.obtener();
   if (token === null) {
-    return { feature: indeterminado('No hay credencial para analizar las resenas.'), detalle: null };
+    return {
+      feature: indeterminado('No hay credencial para analizar las resenas.', 'requiere-sesion'),
+      detalle: null,
+      desenlace: 'error',
+    };
   }
 
   // Se recortan aqui para no gastar la subida en un 400 previsible.
@@ -96,14 +103,22 @@ export const consultarAutenticidad = async (
     const { ok, item, mensaje } = leerRespuesta(await res.json(), res.ok);
     if (!ok) {
       return {
-        feature: indeterminado(mensaje === '' ? 'El analizador de resenas no respondio.' : mensaje),
+        feature: indeterminado(
+          mensaje === '' ? 'El analizador de resenas no respondio.' : mensaje,
+          'fuente-con-error',
+        ),
         detalle: null,
+        desenlace: 'error',
       };
     }
 
     const authenticity = item.numOr('authenticity', 0);
     if (!esNivel(authenticity)) {
-      return { feature: indeterminado('El analizador devolvio un nivel no reconocido.'), detalle: null };
+      return {
+        feature: indeterminado('El analizador devolvio un nivel no reconocido.', 'valor-ilegible'),
+        detalle: null,
+        desenlace: 'error',
+      };
     }
 
     const detalle: DetalleResenas = {
@@ -124,11 +139,15 @@ export const consultarAutenticidad = async (
       summary: item.txt('summary'),
       limitations: item.cadenas('limitations'),
     };
-    return { feature: aFeature(detalle), detalle };
+    return { feature: aFeature(detalle), detalle, desenlace: 'correcto' };
   } catch {
     return {
-      feature: indeterminado('No se pudo analizar la autenticidad de las resenas a tiempo.'),
+      feature: indeterminado(
+        'No se pudo analizar la autenticidad de las resenas a tiempo.',
+        'tiempo-agotado',
+      ),
       detalle: null,
+      desenlace: abortar.signal.aborted ? 'tiempo-agotado' : 'error',
     };
   } finally {
     clearTimeout(reloj);

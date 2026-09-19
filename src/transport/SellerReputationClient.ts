@@ -3,6 +3,7 @@ import { leerRespuesta, type Sobre } from './sobre.js';
 import { conocido, indeterminado, type FeatureValue, type Reputacion } from '../domain/features.js';
 import { soloLoLeido, type DatosDelVendedor } from '../domain/insumos.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
+import type { DesenlaceLlamada } from './RiskEngineClient.js';
 
 /**
  * Lo que la ficha publica sobre el vendedor.
@@ -38,6 +39,8 @@ export interface DetalleVendedor {
 export interface ResultadoVendedor {
   readonly feature: FeatureValue<Reputacion>;
   readonly detalle: DetalleVendedor | null;
+  /** Como termino la llamada. Lo consume la analitica de uso, no la presentacion. */
+  readonly desenlace: DesenlaceLlamada;
 }
 
 const TIMEOUT_MS = 9000;
@@ -79,7 +82,14 @@ export const consultarReputacion = async (
 ): Promise<ResultadoVendedor> => {
   const token = await tokens.obtener();
   if (token === null) {
-    return { feature: indeterminado('No hay credencial para consultar la reputacion.'), detalle: null };
+    return {
+      feature: indeterminado(
+        'No hay credencial para consultar la reputacion.',
+        'requiere-sesion',
+      ),
+      detalle: null,
+      desenlace: 'error',
+    };
   }
 
   const abortar = new AbortController();
@@ -100,14 +110,22 @@ export const consultarReputacion = async (
     const { ok, item, mensaje } = leerRespuesta(await res.json(), res.ok);
     if (!ok) {
       return {
-        feature: indeterminado(mensaje === '' ? 'El analizador de reputacion no respondio.' : mensaje),
+        feature: indeterminado(
+          mensaje === '' ? 'El analizador de reputacion no respondio.' : mensaje,
+          'fuente-con-error',
+        ),
         detalle: null,
+        desenlace: 'error',
       };
     }
 
     const reputation = item.numOr('reputation', 0);
     if (!esNivel(reputation)) {
-      return { feature: indeterminado('El analizador devolvio un nivel no reconocido.'), detalle: null };
+      return {
+        feature: indeterminado('El analizador devolvio un nivel no reconocido.', 'valor-ilegible'),
+        detalle: null,
+        desenlace: 'error',
+      };
     }
 
     const detalle: DetalleVendedor = {
@@ -124,12 +142,16 @@ export const consultarReputacion = async (
       unverifiedSignals: senales(item, 'unverifiedSignals'),
       limitations: item.cadenas('limitations'),
     };
-    return { feature: aFeature(detalle), detalle };
+    return { feature: aFeature(detalle), detalle, desenlace: 'correcto' };
   } catch {
     // Timeout o red caida. Nunca favorable.
     return {
-      feature: indeterminado('No se pudo consultar la reputacion del vendedor a tiempo.'),
+      feature: indeterminado(
+        'No se pudo consultar la reputacion del vendedor a tiempo.',
+        'tiempo-agotado',
+      ),
       detalle: null,
+      desenlace: abortar.signal.aborted ? 'tiempo-agotado' : 'error',
     };
   } finally {
     clearTimeout(reloj);

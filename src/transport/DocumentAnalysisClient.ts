@@ -4,10 +4,12 @@ import {
   conocido,
   indeterminado,
   type FeatureSet,
+  type CausaIndeterminada,
   type FeatureValue,
   type Ordinal,
   type ProteccionDePago,
 } from '../domain/features.js';
+import type { DesenlaceLlamada } from './RiskEngineClient.js';
 
 /** Limite del backend: 8 MB en bytes UTF-8, no en caracteres. */
 export const MAX_BYTES = 8 * 1024 * 1024;
@@ -31,6 +33,8 @@ export interface DetalleDocumento {
 export interface ResultadoDocumento {
   readonly features: FeatureSet;
   readonly detalle: DetalleDocumento | null;
+  /** Como termino la llamada. Lo consume la analitica de uso, no la presentacion. */
+  readonly desenlace: DesenlaceLlamada;
 }
 
 /** El presupuesto del analizador mas el margen de subir un documento de varios MB. */
@@ -39,12 +43,12 @@ const TIMEOUT_MS = 20000;
 /** Bytes UTF-8 reales del documento. `length` cuenta caracteres y enganaria. */
 export const bytesDe = (html: string): number => new Blob([html]).size;
 
-const TODO_INDETERMINADO = (motivo: string): FeatureSet => ({
-  proteccionDePago: indeterminado(motivo),
-  puntuacionDelProducto: indeterminado(motivo),
-  presenciaDeResenas: indeterminado(motivo),
-  politicasDeGarantia: indeterminado(motivo),
-  volumenDeVentas: indeterminado(motivo),
+const TODO_INDETERMINADO = (motivo: string, causa?: CausaIndeterminada): FeatureSet => ({
+  proteccionDePago: indeterminado(motivo, causa),
+  puntuacionDelProducto: indeterminado(motivo, causa),
+  presenciaDeResenas: indeterminado(motivo, causa),
+  politicasDeGarantia: indeterminado(motivo, causa),
+  volumenDeVentas: indeterminado(motivo, causa),
   reputacionDelVendedor: indeterminado('La resuelve el analizador de reputacion del vendedor.'),
   autenticidadDeResenas: indeterminado('La resuelve el analizador de autenticidad de resenas.'),
   veracidadDeDominio: indeterminado('La resuelve el analizador de dominio.'),
@@ -80,20 +84,26 @@ const cruzar = <T>(
     return indeterminado('El backend no informo el estado de esta caracteristica.');
   }
   if (estado.status === NO_DETERMINADA) {
+    // El extractor corrio y ningun selector suyo encontro la seccion.
     return indeterminado(
       estado.reason === '' ? 'El documento no permitio determinarla.' : estado.reason,
+      'sin-selector',
     );
   }
   if (estado.status === DIFERIDA) {
+    // Sin causa: no fallo nada, la resuelve otra etapa.
     return indeterminado(
       estado.reason === '' ? 'La calcula otra etapa del analisis.' : estado.reason,
     );
   }
   if (estado.status !== LEIDA && estado.status !== AUSENCIA_CONFIRMADA) {
-    return indeterminado('El backend devolvio un estado no reconocido.');
+    return indeterminado('El backend devolvio un estado no reconocido.', 'valor-ilegible');
   }
   if (valor === null) {
-    return indeterminado('El backend no devolvio el valor de esta caracteristica.');
+    return indeterminado(
+      'El backend no devolvio el valor de esta caracteristica.',
+      'valor-ilegible',
+    );
   }
   return conocido(traducir(valor), evidencia(valor));
 };
@@ -125,6 +135,8 @@ export const analizarDocumento = async (
         `La pagina pesa ${mb} MB y supera el limite de 8 MB del analizador.`,
       ),
       detalle: null,
+      // No se intento la llamada: omitida, y fuera del denominador de errores.
+      desenlace: 'omitido',
     };
   }
 
@@ -146,17 +158,20 @@ export const analizarDocumento = async (
       return {
         features: TODO_INDETERMINADO(
           mensaje === '' ? 'El analizador de documento no respondio.' : mensaje,
+          'fuente-con-error',
         ),
         detalle: null,
+        desenlace: 'error',
       };
     }
 
-    return { features: mapear(item), detalle: detalleDe(item) };
+    return { features: mapear(item), detalle: detalleDe(item), desenlace: 'correcto' };
   } catch {
     // Timeout o red caida. Nunca favorable: todo queda sin resolver.
     return {
-      features: TODO_INDETERMINADO('No se pudo analizar el documento a tiempo.'),
+      features: TODO_INDETERMINADO('No se pudo analizar el documento a tiempo.', 'tiempo-agotado'),
       detalle: null,
+      desenlace: abortar.signal.aborted ? 'tiempo-agotado' : 'error',
     };
   } finally {
     clearTimeout(reloj);

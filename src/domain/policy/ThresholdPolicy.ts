@@ -53,9 +53,12 @@ export class ThresholdPolicy implements DecisionPolicy {
       };
     }
 
+    const { nivel, puntaje } = this.#puntuar(features);
+
     return {
       kind: 'riesgo',
-      nivel: this.#nivel(features),
+      nivel,
+      puntaje,
       confianza: conocidas.length / FEATURE_IDS.length,
       sustentan: conocidas,
       sinResolver: faltantes,
@@ -66,8 +69,12 @@ export class ThresholdPolicy implements DecisionPolicy {
    * Puntuacion provisional sobre las caracteristicas resueltas. Deliberadamente
    * simple: el clasificador real vive en el backend y esta politica solo existe
    * para que la maqueta produzca los cuatro desenlaces de forma determinista.
+   *
+   * Devuelve el nivel Y el puntaje del que sale, en la misma pasada. Recalcular
+   * el puntaje despues, fuera de la politica, seria tener dos versiones de la
+   * misma cifra y que una pudiera contradecir a la otra.
    */
-  #nivel(f: FeatureSet): NivelDeRiesgo {
+  #puntuar(f: FeatureSet): { readonly nivel: NivelDeRiesgo; readonly puntaje: number } {
     let puntos = 0;
     let consideradas = 0;
 
@@ -90,10 +97,14 @@ export class ThresholdPolicy implements DecisionPolicy {
     if (estaResuelta(f.politicasDeGarantia)) sumar(f.politicasDeGarantia.valor >= 1);
     if (estaResuelta(f.volumenDeVentas)) sumar(f.volumenDeVentas.valor >= 50);
 
-    if (consideradas === 0) return 'alto';
+    // Sin nada que considerar no hay con que sostener nada favorable. El puntaje
+    // es 0 porque es lo que midio la politica, no un relleno.
+    if (consideradas === 0) return { nivel: 'alto', puntaje: 0 };
+
     const razon = puntos / consideradas;
-    if (razon >= 0.7) return 'bajo';
-    if (razon >= 0.4) return 'moderado';
-    return 'alto';
+    const puntaje = Math.round(razon * 100);
+    if (razon >= 0.7) return { nivel: 'bajo', puntaje };
+    if (razon >= 0.4) return { nivel: 'moderado', puntaje };
+    return { nivel: 'alto', puntaje };
   }
 }

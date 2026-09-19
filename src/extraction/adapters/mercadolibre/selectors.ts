@@ -22,6 +22,18 @@ export const ANCLA_BADGE: readonly string[] = [
 ];
 
 /**
+ * Controles de compra. Se usan SOLO para reconocer el clic del comprador y
+ * saber si siguio hacia el pago pese a la advertencia. Nunca se pulsan.
+ */
+export const COMPRA: readonly string[] = [
+  '.ui-pdp-action--primary',
+  '.ui-pdp-actions__button',
+  '#buybox-form button[type="submit"]',
+  'button[formaction*="checkout"]',
+  'a[href*="/checkout/"]',
+];
+
+/**
  * Tarjetas de listado y de los carruseles de recomendaciones. Solo se usan para
  * insertar un enlace a la ficha: de la tarjeta no se extrae ninguna
  * caracteristica, porque no las tiene.

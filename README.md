@@ -68,9 +68,12 @@ pnpm build:safari     # .output/safari-mv3  (ver docs/safari.md)
 ## Arquitectura
 
 ```
-src/domain/       puro: caracteristicas, veredicto, politica. Sin DOM, sin red, sin navegador
+src/domain/       puro: caracteristicas, veredicto, politica, eventos y criterios.
+                  Sin DOM, sin red, sin navegador
 src/extraction/   un adaptador por marketplace, con los selectores aislados
 src/transport/    RiskEngineClient: mock (activo) y http (esqueleto)
+src/analytics/    analitica de uso: cola persistente, lotes e ingesta
+src/feedback/     encuesta de satisfaccion: instrumento y envio
 src/ui/           panel del veredicto, compartido entre popup y content script
 src/entrypoints/  background, content script y popup
 ```
@@ -95,6 +98,7 @@ export const riskEngine: RiskEngineClient = new MockRiskEngineClient();
 - `docs/adr/0004-analisis-de-documento-en-el-servidor.md` — por que la extension entrega el documento en vez de interpretarlo
 - `docs/adr/0005-motor-real-y-credenciales.md` — que quedo real y donde estan las credenciales
 - `docs/adr/0006-insumos-de-reputacion-y-resenas-en-el-cliente.md` — la regla de omision y el costo de la duplicacion
+- `docs/adr/0007-analitica-de-uso-y-encuesta-de-satisfaccion.md` — que se mide, que no sale del navegador y cuando se pregunta
 - `docs/adaptadores.md` — los cuatro adaptadores y que tan verificado esta cada uno
 - `docs/contrato-motor-riesgo.md` — el endpoint propuesto al backend
 - `docs/safari.md` — empaquetado con Xcode y limitaciones
