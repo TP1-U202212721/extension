@@ -234,7 +234,9 @@ export default defineContentScript({
       name: 'scamshield-badge',
       position: ancla !== null ? 'inline' : 'overlay',
       anchor: ancla ?? 'body',
-      append: 'first',
+      // Dentro de un contenedor va como primer hijo; junto a un control (el boton
+      // de comprar), como hermano previo, para no taparlo.
+      append: ancla !== null && adapter.insercionBadge?.(ancla) === 'antes' ? 'before' : 'first',
       onMount: (contenedor) => {
         // Un custom element no tiene display propio: sin esto el host queda
         // inline y el panel no ocupa lugar en el buybox.

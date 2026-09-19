@@ -34,6 +34,9 @@ export interface TarjetaListado {
  * 3. NUNCA devuelve un valor por defecto que se confunda con una observacion.
  *    Si el selector no matchea, el estado es `indeterminado` con su motivo.
  */
+/** `dentro`: primer hijo del ancla. `antes`: hermano previo del ancla. */
+export type InsercionBadge = 'dentro' | 'antes';
+
 export interface MarketplaceAdapter {
   readonly plataforma: string;
   /**
@@ -51,6 +54,13 @@ export interface MarketplaceAdapter {
    * para que la extension nunca quede invisible por un cambio de maquetacion.
    */
   anclaBadge(doc: Document): Element | null;
+  /**
+   * Como insertar el badge respecto del ancla. Por defecto `dentro` (primer hijo),
+   * que sirve cuando el ancla es un CONTENEDOR. Si el ancla es un control, como el
+   * boton de comprar, hay que devolver `antes`: meter el badge dentro de un boton
+   * lo tapa y lo deja sin texto.
+   */
+  insercionBadge?(ancla: Element): InsercionBadge;
   /** Tarjetas de listado o carrusel presentes en la pagina. Vacio si no hay. */
   tarjetas(doc: Document): readonly TarjetaListado[];
 

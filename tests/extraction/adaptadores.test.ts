@@ -78,3 +78,30 @@ describe('presentacion: nunca lanza sobre un documento cualquiera', () => {
     expect(t[0]?.elemento.className).toContain('poly-card');
   });
 });
+
+/**
+ * Regresion: en AliExpress el badge se insertaba como primer hijo del boton
+ * "Comprar ahora" y lo tapaba entero. Junto a un control va ANTES, como hermano;
+ * dentro solo cuando el ancla es un contenedor.
+ */
+describe('AliExpress: el badge no tapa el boton de comprar', () => {
+  const ali = new AliExpressAdapter();
+
+  it('se ancla al boton de comprar y va antes que el, no dentro', () => {
+    const d = doc(`
+      <div class="product-action--wrap">
+        <div class="buy-now--buynow--x1"><button data-pl="product-buy-now">Comprar ahora</button></div>
+        <button data-pl="product-add-to-cart">Agregar al carrito</button>
+      </div>`);
+    const ancla = ali.anclaBadge(d);
+    expect(ancla?.getAttribute('data-pl')).toBe('product-buy-now');
+    expect(ancla !== null && ali.insercionBadge(ancla)).toBe('antes');
+  });
+
+  it('sin boton reconocible, cae al contenedor y ahi si va dentro', () => {
+    const d = doc(`<div class="pdp-info-right--r1"><p>Cantidad</p></div>`);
+    const ancla = ali.anclaBadge(d);
+    expect(ancla?.className).toContain('pdp-info-right');
+    expect(ancla !== null && ali.insercionBadge(ancla)).toBe('dentro');
+  });
+});

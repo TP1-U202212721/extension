@@ -1,11 +1,29 @@
 import { primero, todos } from '../../dom.js';
 import { SIN_INSUMOS, type Insumos } from '../../../domain/insumos.js';
-import type { MarketplaceAdapter, Publicacion, TarjetaListado } from '../../MarketplaceAdapter.js';
+import type {
+  InsercionBadge,
+  MarketplaceAdapter,
+  Publicacion,
+  TarjetaListado,
+} from '../../MarketplaceAdapter.js';
 
 const ID = /\/item\/(\d{6,})\.html/;
 
-/** Donde anclar el badge dentro de la ficha. Cascada: si nada matchea, posicion fija. */
-const ANCLA_BADGE: readonly string[] = ['[class*="buy-now--"]', '[class*="product-action--"]', '[class*="pdp-info-right"]', '.product-action'];
+/**
+ * Donde anclar el badge dentro de la ficha. Cascada: si nada matchea, posicion fija.
+ *
+ * Los primeros son los CONTROLES de compra y el badge va ANTES de ellos, como
+ * hermano: justo encima de "Comprar ahora", que es el punto de decision. Antes se
+ * insertaba como primer hijo del boton y lo tapaba entero, dejandolo sin texto.
+ * Los ultimos son contenedores y ahi si va dentro.
+ */
+const ANCLA_ANTES: readonly string[] = [
+  'button[data-pl="product-buy-now"]',
+  '[class*="buy-now--"]',
+  '[class*="buynow"]',
+];
+const ANCLA_DENTRO: readonly string[] = ['[class*="product-action--"]', '.product-action', '[class*="pdp-info-right"]'];
+const ANCLA_BADGE: readonly string[] = [...ANCLA_ANTES, ...ANCLA_DENTRO];
 
 /** Tarjetas de listado y carrusel. Solo se les inserta un enlace, nunca un veredicto. */
 const TARJETAS: readonly string[] = ['[class*="search-item-card-wrapper"]', '[class*="list--gallery--"]', '.product-card'];
@@ -49,6 +67,10 @@ export class AliExpressAdapter implements MarketplaceAdapter {
 
   anclaBadge(doc: Document): Element | null {
     return primero(doc, ANCLA_BADGE);
+  }
+
+  insercionBadge(ancla: Element): InsercionBadge {
+    return ANCLA_ANTES.some((selector) => ancla.matches(selector)) ? 'antes' : 'dentro';
   }
 
   tarjetas(doc: Document): readonly TarjetaListado[] {
