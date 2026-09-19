@@ -25,7 +25,7 @@ const ANALIZADORES: Analizadores = {
   resenas: true,
 };
 
-const tokens = new SessionTokenProvider();
+export const tokens = new SessionTokenProvider();
 
 export const riskEngine: RiskEngineClient =
   MOTOR === 'backend'

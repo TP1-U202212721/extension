@@ -1,6 +1,6 @@
 import { defineBackground } from 'wxt/utils/define-background';
 import { browser } from 'wxt/browser';
-import { analitica, cola, riskEngine } from '../config.js';
+import { analitica, cola, riskEngine, tokens } from '../config.js';
 import {
   esAnaliticaMensaje,
   esEncuestaDescartada,
@@ -27,6 +27,7 @@ import {
   retirarConsentimiento,
 } from '../feedback/estado.js';
 import { idDeInstalacion } from '../analytics/identidad.js';
+import { guardarConsulta } from '../transport/HistoryClient.js';
 
 const FALLO = 'No se pudo completar el analisis.';
 
@@ -138,6 +139,19 @@ export default defineBackground(() => {
           analitica.consultaResuelta(
             ctx,
             bloqueDeAnalisis({ verdict, features, detalles, traza, duracionMs: Date.now() - inicio }),
+          );
+
+          // Guardar la consulta en el historial y el vendedor en el ranking.
+          // Se hace de forma asincrona sin bloquear la respuesta al usuario.
+          const sellerName = mensaje.insumos.vendedor?.sellerName ?? '';
+          void guardarConsulta(
+            sellerName,
+            mensaje.plataforma,
+            mensaje.url,
+            mensaje.publicacionId,
+            verdict,
+            features,
+            tokens,
           );
         })
         .catch((e: unknown) => {
