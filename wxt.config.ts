@@ -52,7 +52,7 @@ export default defineConfig({
     // Sin ella la cola solo se vaciaria por umbral y lo acumulado podria
     // quedarse esperando indefinidamente.
     permissions: ['storage', 'cookies', 'alarms'],
-    host_permissions: ['https://scamshield.ryzeon.dev/*', 'http://localhost:8081/*'],
+    host_permissions: ['https://scamshield-api.ryzeon.me/*', 'http://localhost:8081/*'],
 
     ...(browser === 'firefox'
       ? {
