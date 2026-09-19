@@ -15,6 +15,7 @@ export const MARKETPLACE_MATCHES = [
   '*://*.mercadolibre.com/*',
   '*://*.amazon.com/*',
   '*://*.aliexpress.com/*',
+  '*://*.temu.com/*',
 ] as const;
 
 export default defineConfig({

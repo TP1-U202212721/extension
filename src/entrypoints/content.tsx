@@ -61,6 +61,7 @@ export default defineContentScript({
     '*://*.aliexpress.us/*',
     '*://*.ebay.com/*',
     '*://*.ebay.es/*',
+    '*://*.temu.com/*',
   ],
   cssInjectionMode: 'ui',
   runAt: 'document_idle',
