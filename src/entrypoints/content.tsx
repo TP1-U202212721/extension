@@ -268,5 +268,43 @@ export default defineContentScript({
     });
 
     ui.mount();
+
+    /**
+     * Las fichas de AliExpress (y cualquier pagina hecha en React) vuelven a
+     * pintar el bloque de compra un momento despues de cargar, y al hacerlo se
+     * llevan el badge por delante: aparecia y desaparecia al segundo.
+     *
+     * En vez de crear un badge nuevo, se vuelve a colgar EL MISMO nodo. El arbol
+     * de React sigue vivo mientras el nodo esta desenganchado, asi que no se
+     * pierde nada: ni el veredicto ya calculado, ni el panel abierto, ni lo que
+     * la persona estuviera escribiendo en la encuesta.
+     *
+     * El observador es barato: en la inmensa mayoria de mutaciones el nodo sigue
+     * conectado y se sale en la primera linea. Las rafagas se agrupan en un solo
+     * cuadro de animacion.
+     */
+    const host = ui.shadowHost;
+    const colgar = (): void => {
+      if (host.isConnected) return;
+      const nueva = adapter.anclaBadge(document);
+      // Sin ancla todavia: la proxima mutacion lo reintenta cuando aparezca.
+      if (nueva === null) return;
+      if (adapter.insercionBadge?.(nueva) === 'antes') nueva.before(host);
+      else nueva.prepend(host);
+    };
+
+    let recolgarPendiente = false;
+    const vigia = new MutationObserver(() => {
+      if (recolgarPendiente || host.isConnected) return;
+      recolgarPendiente = true;
+      requestAnimationFrame(() => {
+        recolgarPendiente = false;
+        colgar();
+      });
+    });
+    vigia.observe(document.body, { childList: true, subtree: true });
+    ctx.onInvalidated(() => {
+      vigia.disconnect();
+    });
   },
 });
