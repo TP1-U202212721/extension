@@ -243,6 +243,21 @@ export default defineContentScript({
       },
     };
 
+    // Capa de los paneles flotantes, colgada del <html> y no de la ficha: asi
+    // ningun contenedor del marketplace (con transform, overflow o su propio
+    // z-index) recorta ni tapa el reporte. Ver FLOTANTE en ScamShieldBadge.
+    let capa: HTMLElement | null = null;
+    const uiCapa = await createShadowRootUi(ctx, {
+      name: 'scamshield-capa',
+      position: 'inline',
+      anchor: document.documentElement,
+      append: 'last',
+      onMount: (contenedor) => {
+        capa = contenedor;
+      },
+    });
+    uiCapa.mount();
+
     let root: Root | undefined;
     const ui = await createShadowRootUi(ctx, {
       name: 'scamshield-badge',
@@ -273,6 +288,7 @@ export default defineContentScript({
             evaluar,
             interacciones: emisor,
             encuesta,
+            capa,
           }),
         );
       },

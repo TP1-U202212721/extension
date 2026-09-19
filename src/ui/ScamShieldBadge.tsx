@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Shield, ShieldAlert, ShieldCheck, ShieldQuestion, Loader2, LogIn } from 'lucide-react';
 import { URL_REGISTRO } from '../auth/sesion.js';
 import type { FeatureSet } from '../domain/features.js';
@@ -71,6 +72,11 @@ interface Props {
   } | null>;
   readonly interacciones?: InteraccionesDelBadge;
   readonly encuesta?: CanalDeEncuesta;
+  /**
+   * Donde se dibujan los paneles flotantes: una capa colgada del `<html>`, fuera
+   * de la columna de compra. Sin ella se dibujan junto al badge.
+   */
+  readonly capa?: HTMLElement | null;
 }
 
 type FaseEncuesta = 'oculta' | 'visible' | 'enviando' | 'fallo' | 'gracias';
@@ -83,6 +89,11 @@ type FaseEncuesta = 'oculta' | 'visible' | 'enviando' | 'fallo' | 'gracias';
  * angosta que el panel y tiene `overflow: hidden`: colgado de ahi, el panel salia
  * recortado por la izquierda y por abajo (AliExpress). Fijo en la ventana ninguna
  * columna lo recorta, y con alto maximo y scroll propio cabe en cualquier pantalla.
+ *
+ * Pero `fixed` solo se mide contra la ventana si ningun ancestro tiene
+ * `transform`, `filter` o `contain`. La columna de Temu lo tiene: el panel
+ * quedaba pegado a la columna, cortado, y debajo de los botones flotantes de la
+ * pagina. Por eso los paneles se dibujan en la `capa`, fuera de la ficha.
  */
 const FLOTANTE =
   'fixed right-4 top-4 z-[2147483647] max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-y-auto';
@@ -95,7 +106,8 @@ const FLOTANTE =
  * Asi el comprador decide cuando analizar, y la extension no hace trabajo ni
  * emite peticiones que el usuario no pidio.
  */
-export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }: Props) {
+export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta, capa }: Props) {
+  const flotar = (panel: ReactNode): ReactNode => (capa ? createPortal(panel, capa) : panel);
   const [estado, setEstado] = useState<Estado>({ fase: 'inactivo' });
   const [abierto, setAbierto] = useState(false);
   const [instrumento, setInstrumento] = useState<Instrumento | null>(null);
@@ -234,7 +246,9 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
         )}
       </button>
 
-      {abierto && estado.fase === 'requiere-sesion' && (
+      {abierto &&
+        estado.fase === 'requiere-sesion' &&
+        flotar(
         <div className={`${FLOTANTE} w-[320px] rounded-2xl border border-slate-200 bg-white p-4 shadow-lg`}>
           <p className="text-sm font-semibold text-slate-800">
             Inicia sesion para obtener el reporte
@@ -254,10 +268,12 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
           >
             Crear una cuenta
           </a>
-        </div>
-      )}
+        </div>,
+        )}
 
-      {abierto && estado.fase === 'listo' && (
+      {abierto &&
+        estado.fase === 'listo' &&
+        flotar(
         <div className={`${FLOTANTE} w-[380px] rounded-2xl`}>
           <VerdictPanel
             verdict={estado.verdict}
@@ -273,8 +289,8 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta }
               interacciones?.advertenciaCerrada();
             }}
           />
-        </div>
-      )}
+        </div>,
+        )}
     </div>
   );
 }
