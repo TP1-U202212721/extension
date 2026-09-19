@@ -100,7 +100,9 @@ export const guardarConsulta = async (
   };
 
   const abortar = new AbortController();
-  const reloj = setTimeout(() => abortar.abort(), TIMEOUT_MS);
+  const reloj = setTimeout(() => {
+    abortar.abort();
+  }, TIMEOUT_MS);
 
   try {
     const res = await fetch(`${API_BASE_URL}/InquiryResult/SaveFromExtension`, {

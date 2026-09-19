@@ -30,6 +30,7 @@ const PLATAFORMA_POR_NOMBRE: Readonly<Record<string, PlataformaAnalitica>> = {
   Amazon: PLATAFORMA.amazon,
   AliExpress: PLATAFORMA.aliExpress,
   eBay: PLATAFORMA.ebay,
+  Temu: PLATAFORMA.temu,
 };
 
 /** Lo desconocido cae en 99: el evento no se pierde por una plataforma nueva. */

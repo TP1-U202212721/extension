@@ -271,8 +271,10 @@ describe('plataforma de la encuesta', () => {
   it('no confunde el enumerado con el de la analitica', () => {
     expect(plataformaDeEncuesta('Mercado Libre')).toBe(1);
     expect(plataformaDeEncuesta('AliExpress')).toBe(3);
-    expect(plataformaDeEncuesta('Amazon')).toBe(99);
-    expect(plataformaDeEncuesta('eBay')).toBe(99);
+    expect(plataformaDeEncuesta('Amazon')).toBe(4);
+    expect(plataformaDeEncuesta('eBay')).toBe(5);
+    expect(plataformaDeEncuesta('Temu')).toBe(6);
+    expect(plataformaDeEncuesta('Walmart')).toBe(99);
     expect(plataformaDeEncuesta('')).toBe(0);
   });
 });

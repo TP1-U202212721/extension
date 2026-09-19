@@ -87,15 +87,17 @@ export const ALCANCE = {
  * `EFeedbackPlatform`.
  *
  * OJO: NO es el mismo enumerado que el de la analitica de uso. Aqui el 2 es
- * Facebook Marketplace y no Amazon, y ni Amazon ni eBay tienen valor propio:
- * caen en 99. Reutilizar el otro mapa mandaria las respuestas de Amazon a la
- * fila de Facebook Marketplace, que es un error que no se ve hasta que se
- * exporta la tabla.
+ * Facebook Marketplace y no Amazon, y Amazon es el 4. Reutilizar el otro mapa
+ * mandaria las respuestas de Amazon a la fila de Facebook Marketplace, que es
+ * un error que no se ve hasta que se exporta la tabla.
  */
 const PLATAFORMA_ENCUESTA: Readonly<Record<string, number>> = {
   'Mercado Libre': 1,
   'Facebook Marketplace': 2,
   AliExpress: 3,
+  Amazon: 4,
+  eBay: 5,
+  Temu: 6,
 };
 
 export const plataformaDeEncuesta = (nombre: string): number =>

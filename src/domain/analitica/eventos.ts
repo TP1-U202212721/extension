@@ -31,6 +31,7 @@ export const PLATAFORMA = {
   aliExpress: 3,
   ebay: 4,
   facebookMarketplace: 5,
+  temu: 6,
   otra: 99,
 } as const;
 export type PlataformaAnalitica = (typeof PLATAFORMA)[keyof typeof PLATAFORMA];
