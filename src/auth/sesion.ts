@@ -1,9 +1,14 @@
 import { browser } from 'wxt/browser';
 import { API_BASE_URL } from '../api.js';
 
-/** Cliente web de ScamShield. Es quien autentica; la extension solo lee el resultado. */
-export const APP_WEB = 'https://scamshield.ryzeon.me/login';
-export const HOST_APP = 'scamshield.ryzeon.dev';
+/**
+ * Origen del cliente web de ScamShield. Es quien autentica; la extension solo lee el
+ * resultado. Va SIN ruta: las rutas se componen abajo, y la cookie se busca sobre el
+ * origen. Con una ruta aqui, el login quedaba en /login/login.
+ */
+export const APP_WEB = 'https://scamshield.ryzeon.me';
+/** Dominio donde el cliente web deja la cookie de sesion. Sale de APP_WEB para no divergir. */
+export const HOST_APP = new URL(APP_WEB).hostname;
 export const URL_LOGIN = `${APP_WEB}/login`;
 export const URL_REGISTRO = `${APP_WEB}/register`;
 

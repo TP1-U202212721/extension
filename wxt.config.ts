@@ -39,11 +39,7 @@ export default defineConfig({
       'Estima el riesgo de una publicacion de venta leyendo la pagina que ya abriste, antes de que pagues.',
     default_locale: undefined,
 
-    // Solo storage, para guardar la sesion del comprador. No hace falta
-    // `cookies` porque la extension inicia sesion por su cuenta contra la API,
-    // ni host_permissions porque el backend responde con CORS abierto. Y no hay
-    // ni un permiso sobre los marketplaces: no se les pide nada.
-    // `cookies` + host_permissions SOLO sobre el dominio propio de ScamShield:
+    // `cookies` + host_permissions sobre el dominio del cliente web de ScamShield:
     // ahi el cliente web deja el token tras iniciar sesion, y leerlo evita
     // duplicar el login dentro de la extension. Sigue sin haber ni un permiso
     // sobre los marketplaces: a ellos no se les pide absolutamente nada.
@@ -52,7 +48,13 @@ export default defineConfig({
     // Sin ella la cola solo se vaciaria por umbral y lo acumulado podria
     // quedarse esperando indefinidamente.
     permissions: ['storage', 'cookies', 'alarms'],
-    host_permissions: ['https://scamshield-api.ryzeon.me/*', 'http://localhost:8081/*'],
+    // El primer host es el del cliente web, donde vive la cookie: sin el, cookies.get
+    // devuelve null y la extension nunca ve la sesion aunque el usuario haya entrado.
+    host_permissions: [
+      'https://scamshield.ryzeon.me/*',
+      'https://scamshield-api.ryzeon.me/*',
+      'http://localhost:8081/*',
+    ],
 
     ...(browser === 'firefox'
       ? {
