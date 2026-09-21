@@ -4,6 +4,7 @@ import { browser } from 'wxt/browser';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { adapterPara } from '../extraction/registry.js';
+import type { Publicacion } from '../extraction/MarketplaceAdapter.js';
 import { esperarElemento } from '../extraction/dom.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import {
@@ -79,7 +80,7 @@ export default defineContentScript({
   cssInjectionMode: 'ui',
   runAt: 'document_idle',
 
-  async main(ctx) {
+  main(ctx) {
     // En Facebook Marketplace los datos del vendedor no estan en la ficha sino
     // en su perfil. Cuando el comprador pide revisarlo, el background abre ese
     // perfil en segundo plano y le pide su documento a ESTE listener, que corre
@@ -131,9 +132,14 @@ export default defineContentScript({
       limpiarBadgesTarjeta(document);
     });
 
-    const publicacion = adapter.identificar(new URL(location.href));
-    if (publicacion === null) return;
-
+    /**
+     * Monta el badge para UNA publicacion y devuelve como desmontarlo.
+     *
+     * Facebook cambia de publicacion sin recargar la pagina, asi que esto se
+     * vuelve a ejecutar en cada cambio de URL: el content script solo corre una
+     * vez, y sin esto el badge se quedaba en la primera ficha.
+     */
+    const montarFicha = async (publicacion: Publicacion): Promise<() => void> => {
     emisor.fichaDetectada();
 
     // Al cargar la pagina NO se lee el DOM ni se consulta nada: solo se inserta
@@ -423,8 +429,43 @@ export default defineContentScript({
       });
     });
     vigia.observe(document.body, { childList: true, subtree: true });
+
+      return () => {
+        vigia.disconnect();
+        ui.remove();
+        uiCapa.remove();
+      };
+    };
+
+    let desmontar: (() => void) | null = null;
+    let fichaMontada: string | null = null;
+
+    const sincronizarConLaUrl = (): void => {
+      const publicacion = adapter.identificar(new URL(location.href));
+      if (publicacion?.publicacionId === fichaMontada) return;
+
+      desmontar?.();
+      desmontar = null;
+      fichaMontada = null;
+      if (publicacion === null) return;
+
+      fichaMontada = publicacion.publicacionId;
+      void montarFicha(publicacion).then((quitar) => {
+        // Si mientras se montaba la persona ya se fue a otra ficha, se descarta.
+        if (fichaMontada === publicacion.publicacionId) desmontar = quitar;
+        else quitar();
+      });
+    };
+
+    sincronizarConLaUrl();
+
+    // Facebook navega entre publicaciones sin recargar: WXT avisa del cambio.
+    ctx.addEventListener(window, 'wxt:locationchange', () => {
+      sincronizarConLaUrl();
+    });
+
     ctx.onInvalidated(() => {
-      vigia.disconnect();
+      desmontar?.();
     });
   },
 });
