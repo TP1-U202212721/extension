@@ -508,6 +508,14 @@ export default defineContentScript({
       sincronizarConLaUrl();
     });
 
+    // Respaldo: abrir una publicacion desde la portada de Marketplace no siempre
+    // dispara ese aviso, y entonces el badge se quedaba con la ficha anterior
+    // hasta recargar. Comparar la URL una vez por segundo es barato y no falla.
+    const reloj = setInterval(sincronizarConLaUrl, 1000);
+    ctx.onInvalidated(() => {
+      clearInterval(reloj);
+    });
+
     ctx.onInvalidated(() => {
       desmontar?.();
     });

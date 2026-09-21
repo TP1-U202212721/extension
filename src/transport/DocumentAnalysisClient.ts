@@ -111,7 +111,13 @@ const cruzar = <T>(
       'valor-ilegible',
     );
   }
-  return conocido(traducir(valor), evidencia(valor));
+  // Una ausencia CONFIRMADA trae su motivo, y ese motivo explica mejor que la
+  // frase generica: en Facebook, un promedio de 0 no es una nota psima, es que
+  // el vendedor no tiene ninguna calificacion, y asi lo dice el backend.
+  const porQue =
+    estado.status === AUSENCIA_CONFIRMADA && estado.reason !== '' ? estado.reason : evidencia(valor);
+
+  return conocido(traducir(valor), porQue);
 };
 
 const aOrdinal = (n: number): Ordinal => {
