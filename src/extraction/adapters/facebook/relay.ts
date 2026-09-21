@@ -232,6 +232,50 @@ export const publicacionesActivas = (texto: string): number | undefined => {
   return ids.size === 0 ? undefined : ids.size;
 };
 
+/** Marcas del perfil del vendedor que vale la pena conservar al recortar. */
+const MARCAS_DEL_PERFIL: readonly string[] = [
+  '"marketplace_followers"',
+  '"five_star_ratings_average"',
+  '"five_star_total_rating_count_by_role"',
+  '"commerce_badges_info"',
+  '"MarketplaceC2CSellerRating"',
+  '"GroupCommerceProductItem"',
+  '"short_name"',
+];
+
+/** Cuanto texto se conserva alrededor de cada marca del perfil. */
+const MARGEN = 3000;
+
+/**
+ * Recorta el perfil a los trozos que hablan del vendedor.
+ *
+ * Una pagina de Facebook pesa mas de 10 MB y el analizador acepta 8. Casi todo
+ * es codigo y datos de otras cosas: lo unico que se necesita son las ventanas
+ * alrededor de estas marcas.
+ */
+export const recorteDelPerfil = (texto: string): string => {
+  const trozos: string[] = [];
+  let hasta = 0;
+  const cortes: { desde: number; hasta: number }[] = [];
+
+  for (const marca of MARCAS_DEL_PERFIL) {
+    for (let i = texto.indexOf(marca); i >= 0; i = texto.indexOf(marca, i + 1)) {
+      cortes.push({ desde: Math.max(0, i - MARGEN), hasta: Math.min(texto.length, i + MARGEN) });
+      if (cortes.length > 60) break;
+    }
+  }
+
+  // Se unen los solapados para no repetir el mismo trozo muchas veces.
+  cortes.sort((a, b) => a.desde - b.desde);
+  for (const corte of cortes) {
+    if (corte.hasta <= hasta) continue;
+    trozos.push(texto.slice(Math.max(corte.desde, hasta), corte.hasta));
+    hasta = corte.hasta;
+  }
+
+  return trozos.join('\n');
+};
+
 export interface ResenaDelVendedor {
   readonly text: string;
   readonly rating?: number;

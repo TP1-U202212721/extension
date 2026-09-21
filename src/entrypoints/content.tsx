@@ -28,6 +28,7 @@ import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.j
 import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import { SIN_DETALLES, type Detalles } from '../transport/RiskEngineClient.js';
+import type { Insumos } from '../domain/insumos.js';
 
 interface Evaluado {
   readonly verdict: Verdict;
@@ -87,7 +88,11 @@ export default defineContentScript({
     browser.runtime.onMessage.addListener(
       (mensaje: unknown, _emisor, responder: (r: PerfilRespuesta) => void) => {
         if (!esDameDocumento(mensaje)) return false;
-        responder({ tipo: 'perfil', html: document.documentElement.outerHTML });
+        const suyo = adapterPara(location.href);
+        responder({
+          tipo: 'perfil',
+          html: suyo?.documentoParaAnalizar?.(document) ?? document.documentElement.outerHTML,
+        });
         return false;
       },
     );
@@ -142,19 +147,63 @@ export default defineContentScript({
     );
 
     /**
-     * El perfil del vendedor que el comprador acepto revisar. Vacio hasta que lo
-     * pida: la extension no abre nada por su cuenta.
+     * El perfil del vendedor, cuando la plataforma lo necesita. Se lee al
+     * analizar, no al cargar la pagina: hasta que el comprador no pulsa el badge,
+     * la extension no abre nada.
      */
     let htmlVendedor: string | undefined;
 
+    /**
+     * Los insumos de la ficha, completados con lo que diga el perfil.
+     *
+     * En Facebook la ficha no publica al vendedor ni sus valoraciones: eso vive
+     * en su perfil, y sin esto los analizadores de reputacion y de resenas se
+     * quedarian sin nada que mirar.
+     */
+    const insumosConPerfil = (): Insumos => {
+      const deLaFicha = adapter.insumos(document);
+      if (htmlVendedor === undefined) return deLaFicha;
+
+      const perfil = new DOMParser().parseFromString(htmlVendedor, 'text/html');
+      const delPerfil = adapter.insumos(perfil);
+      return {
+        vendedor: delPerfil.vendedor ?? deLaFicha.vendedor,
+        resenas: delPerfil.resenas.length > 0 ? delPerfil.resenas : deLaFicha.resenas,
+        categoria: deLaFicha.categoria,
+      };
+    };
+
+    /**
+     * Pide el perfil del vendedor y lo guarda para la evaluacion.
+     *
+     * Devuelve false si no se pudo leer (sin sesion en Facebook, o la pestana no
+     * cargo): entonces el veredicto sale sin los datos del vendedor y el panel
+     * ofrece reintentarlo.
+     */
+    const traerPerfil = async (): Promise<boolean> => {
+      const perfil = adapter.perfilDelVendedor?.(document) ?? null;
+      if (perfil === null) return false;
+
+      const peticion: RevisarVendedorMensaje = { tipo: 'revisar-vendedor', url: perfil };
+      const bruto: unknown = await browser.runtime.sendMessage(peticion);
+      if (!esPerfilRespuesta(bruto) || bruto.html === null) return false;
+
+      htmlVendedor = bruto.html;
+      return true;
+    };
+
     const evaluar = async (): Promise<Evaluado | null> => {
+      // En Facebook los datos del vendedor viven en su perfil: se abre en segundo
+      // plano ANTES de evaluar, se lee y se cierra, para no pedir un clic de mas.
+      if (htmlVendedor === undefined) await traerPerfil();
+
       const mensaje: EvaluarMensaje = {
         tipo: 'evaluar',
         plataforma: publicacion.plataforma,
         publicacionId: publicacion.publicacionId,
         url: location.href,
-        html: document.documentElement.outerHTML,
-        insumos: adapter.insumos(document),
+        html: adapter.documentoParaAnalizar?.(document) ?? document.documentElement.outerHTML,
+        insumos: insumosConPerfil(),
         sesionId: emisor.sesionId,
         categoria: adapter.categoriaGruesa(document),
         ...(htmlVendedor !== undefined && { htmlVendedor }),
@@ -183,23 +232,13 @@ export default defineContentScript({
     };
 
     /**
-     * Pide abrir el perfil del vendedor y vuelve a evaluar con lo que traiga.
-     *
-     * Devuelve null si no se pudo leer (sin sesion en Facebook, o la pagina no
-     * cargo): entonces los datos del vendedor siguen sin medirse, que es lo
-     * correcto. Es undefined cuando la plataforma no necesita perfil.
+     * Reintento manual de la lectura del perfil, para cuando la automatica fallo.
+     * Es undefined en las plataformas que no necesitan perfil.
      */
-    const perfil = adapter.perfilDelVendedor?.(document) ?? null;
     const revisarVendedor =
-      perfil === null
+      adapter.perfilDelVendedor === undefined
         ? undefined
-        : async (): Promise<Evaluado | null> => {
-            const peticion: RevisarVendedorMensaje = { tipo: 'revisar-vendedor', url: perfil };
-            const bruto: unknown = await browser.runtime.sendMessage(peticion);
-            if (!esPerfilRespuesta(bruto) || bruto.html === null) return null;
-            htmlVendedor = bruto.html;
-            return evaluar();
-          };
+        : async (): Promise<Evaluado | null> => ((await traerPerfil()) ? evaluar() : null);
 
     /**
      * Que hizo el comprador DESPUES de ver la advertencia, que es la pregunta

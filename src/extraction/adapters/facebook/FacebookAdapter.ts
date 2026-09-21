@@ -7,7 +7,13 @@ import type {
   TarjetaListado,
 } from '../../MarketplaceAdapter.js';
 import { categoriaGruesaDe, insumosDe } from './insumos.js';
-import { idDelPerfil, textoEmbebido } from './relay.js';
+import {
+  bloqueDeLaFicha,
+  bloqueDeLasFotos,
+  idDelPerfil,
+  recorteDelPerfil,
+  textoEmbebido,
+} from './relay.js';
 
 /** Ficha de Marketplace: `/marketplace/item/1234567890123456/`. */
 const ID = /\/marketplace\/item\/(\d{10,20})/;
@@ -121,6 +127,31 @@ export class FacebookAdapter implements MarketplaceAdapter {
     )?.[1];
     const id = enElEnlace ?? idDelPerfil(textoEmbebido(doc));
     return id === undefined ? null : PERFIL(id);
+  }
+
+  /**
+   * Lo que se manda al backend. Una pagina de Facebook pesa mas de 10 MB y el
+   * analizador acepta 8, asi que no se manda entera: de la ficha van su registro
+   * y el bloque de las fotos; del perfil, las ventanas que hablan del vendedor.
+   *
+   * El backend lee exactamente lo mismo sobre este recorte que sobre la pagina
+   * completa: busca dentro del registro de la publicacion, que es lo que va.
+   */
+  documentoParaAnalizar(doc: Document): string {
+    const texto = textoEmbebido(doc);
+    const id = ID.exec(doc.URL)?.[1];
+
+    const partes =
+      id === undefined
+        ? [recorteDelPerfil(texto)]
+        : [bloqueDeLaFicha(texto, id), bloqueDeLasFotos(texto), recorteDelPerfil(texto)];
+
+    const util = partes.filter((p) => p !== '').join('\n');
+    // El `<script>` es lo que el backend sabe leer; el titulo ayuda a diagnosticar.
+    return (
+      `<!DOCTYPE html><html><head><title>${doc.title.replace(/</g, '')}</title></head>` +
+      `<body><script type="application/json">${util.replace(/<\//g, '<\\/')}</script></body></html>`
+    );
   }
 
   tarjetas(doc: Document): readonly TarjetaListado[] {

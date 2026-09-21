@@ -71,6 +71,15 @@ export interface MarketplaceAdapter {
    */
   perfilDelVendedor?(doc: Document): string | null;
 
+  /**
+   * Que documento mandarle al backend, cuando la pagina entera no sirve.
+   *
+   * Por defecto viaja el `outerHTML` completo (docs/adr/0004). Facebook pesa mas
+   * de 10 MB y el analizador acepta 8, asi que ahi se manda solo el trozo que
+   * describe la publicacion. El ADR ya preveia mover el recorte al cliente.
+   */
+  documentoParaAnalizar?(doc: Document): string;
+
   /** Tarjetas de listado o carrusel presentes en la pagina. Vacio si no hay. */
   tarjetas(doc: Document): readonly TarjetaListado[];
 
