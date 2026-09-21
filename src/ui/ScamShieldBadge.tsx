@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, ShieldAlert, ShieldCheck, ShieldQuestion, Loader2, LogIn } from 'lucide-react';
-import { URL_REGISTRO } from '../auth/sesion.js';
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { Detalles } from '../transport/RiskEngineClient.js';
@@ -93,6 +92,11 @@ interface Props {
    * aviso para revisarlo no tiene nada que ofrecer y no se muestra.
    */
   readonly perfilLeido?: () => boolean;
+  /**
+   * Abre la sesion de ScamShield. Lo hace el content script porque solo el
+   * background puede abrir el panel de la extension.
+   */
+  readonly abrirSesion?: () => void;
 }
 
 type FaseEncuesta = 'oculta' | 'visible' | 'enviando' | 'fallo' | 'gracias';
@@ -133,6 +137,7 @@ export function ScamShieldBadge({
   capa,
   revisarVendedor,
   perfilLeido,
+  abrirSesion,
 }: Props) {
   const flotar = (panel: ReactNode): ReactNode => (capa ? createPortal(panel, capa) : panel);
   const [estado, setEstado] = useState<Estado>({ fase: 'inactivo' });
@@ -160,11 +165,17 @@ export function ScamShieldBadge({
       alternarPanel();
       return;
     }
+    // Sin sesion no hay nada que contar dentro de la pagina: se abre la propia
+    // extension, que es donde se inicia sesion.
+    if (estado.fase === 'requiere-sesion') {
+      abrirSesion?.();
+      return;
+    }
     setEstado({ fase: 'analizando' });
     void evaluar().then((r) => {
       if (r === null) {
         setEstado({ fase: 'requiere-sesion' });
-        setAbierto(true);
+        abrirSesion?.();
         return;
       }
       setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles });
@@ -316,31 +327,6 @@ export function ScamShieldBadge({
           </span>
         )}
       </button>
-
-      {abierto &&
-        estado.fase === 'requiere-sesion' &&
-        flotar(
-        <div className={`${FLOTANTE} w-[320px] rounded-2xl border border-slate-200 bg-white p-4 shadow-lg`}>
-          <p className="text-sm font-semibold text-slate-800">
-            Inicia sesion para obtener el reporte
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            La estimacion de riesgo necesita una cuenta de ScamShield.
-          </p>
-          <p className="mt-2 text-xs text-slate-500">
-            Inicia sesion desde el icono de ScamShield en la barra del navegador. Nunca te vamos a
-            pedir tu contrasena dentro de una pagina de un marketplace.
-          </p>
-          <a
-            href={URL_REGISTRO}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 block rounded-xl bg-slate-100 px-3 py-2 text-center text-sm font-bold text-slate-700 hover:bg-slate-200"
-          >
-            Crear una cuenta
-          </a>
-        </div>,
-        )}
 
       {abierto &&
         estado.fase === 'listo' &&

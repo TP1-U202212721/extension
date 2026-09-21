@@ -55,6 +55,16 @@ export interface RevisarVendedorMensaje {
 }
 
 /**
+ * Abre la sesion de ScamShield desde el badge.
+ *
+ * Lo atiende el background porque el popup y las pestanas solo se abren desde
+ * ahi. Asi el comprador no tiene que ir a buscar el icono en la barra.
+ */
+export interface AbrirSesionMensaje {
+  readonly tipo: 'abrir-sesion';
+}
+
+/**
  * El background le pide su documento al content script de la pestana del
  * perfil. Es el unico mensaje que va en esa direccion.
  */
@@ -161,6 +171,7 @@ export type Respuesta =
 
 export type Mensaje =
   | EvaluarMensaje
+  | AbrirSesionMensaje
   | RevisarVendedorMensaje
   | DameDocumentoMensaje
   | AnaliticaMensaje
@@ -186,6 +197,8 @@ export const esRevisarVendedor = (m: unknown): m is RevisarVendedorMensaje =>
 
 export const esDameDocumento = (m: unknown): m is DameDocumentoMensaje =>
   esTipo(m, 'dame-documento');
+
+export const esAbrirSesion = (m: unknown): m is AbrirSesionMensaje => esTipo(m, 'abrir-sesion');
 
 export const esEncuestaOferta = (m: unknown): m is EncuestaOfertaMensaje =>
   esTipo(m, 'encuesta-oferta');

@@ -14,6 +14,7 @@ import {
   esPerfilRespuesta,
   esSesionRequerida,
   esVeredictoRespuesta,
+  type AbrirSesionMensaje,
   type PerfilRespuesta,
   type RevisarVendedorMensaje,
   type EncuestaDescartadaMensaje,
@@ -43,6 +44,10 @@ import '../ui/tailwind.css';
  * una esquina. Temu lo pinta tarde, y a veces detras de una verificacion.
  */
 const ESPERA_ANCLA_MS = 10_000;
+
+/** La misma pila de Tailwind, fijada a mano porque el shadow root hereda la de la pagina. */
+const TIPOGRAFIA =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 const SIN_RESPUESTA: Verdict = {
   kind: 'evidencia-insuficiente',
@@ -342,6 +347,9 @@ export default defineContentScript({
       anchor: document.documentElement,
       append: 'last',
       onMount: (contenedor) => {
+        // La fuente se fija aqui: dentro del shadow root se hereda la de la
+        // pagina, y en Facebook o en un sitio con serif el panel salia en Times.
+        contenedor.style.fontFamily = TIPOGRAFIA;
         capa = contenedor;
       },
     });
@@ -363,6 +371,7 @@ export default defineContentScript({
         // inline y el panel no ocupa lugar en el buybox.
         contenedor.style.display = 'block';
         contenedor.style.width = '100%';
+        contenedor.style.fontFamily = TIPOGRAFIA;
 
         if (ancla === null) {
           // Sin anclaje reconocible, el badge no desaparece: se fija en una
@@ -380,6 +389,10 @@ export default defineContentScript({
             evaluar,
             interacciones: emisor,
             encuesta,
+            abrirSesion: () => {
+              const peticion: AbrirSesionMensaje = { tipo: 'abrir-sesion' };
+              void browser.runtime.sendMessage(peticion).catch(() => undefined);
+            },
             capa,
             ...(revisarVendedor !== undefined && {
               revisarVendedor,

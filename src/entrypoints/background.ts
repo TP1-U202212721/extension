@@ -6,6 +6,7 @@ import {
   esEncuestaDescartada,
   esEncuestaEnvio,
   esEncuestaRetirarConsentimiento,
+  esAbrirSesion,
   esEncuestaOferta,
   esEvaluarMensaje,
   esPerfilRespuesta,
@@ -16,7 +17,7 @@ import {
 } from '../messaging.js';
 import { SesionRequeridaError, SIN_DETALLES } from '../transport/RiskEngineClient.js';
 import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.js';
-import { COOKIE, HOST_APP, sincronizarConCookie } from '../auth/sesion.js';
+import { COOKIE, HOST_APP, abrirLogin, sincronizarConCookie } from '../auth/sesion.js';
 import { bloqueDeAnalisis } from '../analytics/desenlace.js';
 import type { ContextoDeUso } from '../analytics/Analitica.js';
 import { consentimientoVigente, debeOfrecerse } from '../domain/encuesta/criterio.js';
@@ -65,6 +66,21 @@ let instrumentoEnMemoria: Instrumento | null = null;
 const instrumentoVigente = async (): Promise<Instrumento | null> => {
   instrumentoEnMemoria ??= await obtenerInstrumento();
   return instrumentoEnMemoria;
+};
+
+/**
+ * Abre la sesion: el popup de la extension si el navegador lo permite, y si no,
+ * la pagina de inicio de sesion en una pestana.
+ *
+ * `action.openPopup` solo existe en Chrome reciente y solo se puede llamar desde
+ * el background; en Firefox y en Chrome viejo lanza, y entonces vale la pestana.
+ */
+const abrirSesion = async (): Promise<void> => {
+  try {
+    await browser.action.openPopup();
+  } catch {
+    await abrirLogin();
+  }
 };
 
 /** Resuelve cuando la pestana termina de cargar, o al agotarse la espera. */
@@ -156,6 +172,12 @@ export default defineBackground(() => {
 
       if (esEncuestaDescartada(mensaje)) {
         // "Ahora no" solo oculta la encuesta de esa consulta; no hay nada que guardar.
+        sendResponse({ tipo: 'listo' });
+        return false;
+      }
+
+      if (esAbrirSesion(mensaje)) {
+        void abrirSesion();
         sendResponse({ tipo: 'listo' });
         return false;
       }
