@@ -65,6 +65,21 @@ export interface AbrirSesionMensaje {
 }
 
 /**
+ * Pregunta si hay sesion, antes de hacer nada que se note.
+ *
+ * Sin esto la extension abria la pestana del perfil del vendedor aunque no
+ * hubiera sesion, y el analisis iba a fallar de todas formas.
+ */
+export interface HaySesionMensaje {
+  readonly tipo: 'hay-sesion';
+}
+
+export interface SesionRespuesta {
+  readonly tipo: 'sesion';
+  readonly haySesion: boolean;
+}
+
+/**
  * El background avisa a las pestanas de que la sesion cambio.
  *
  * Sin esto, quien iniciaba sesion se quedaba mirando un badge que seguia
@@ -174,6 +189,7 @@ export interface ListoRespuesta {
 
 export type Respuesta =
   | VeredictoRespuesta
+  | SesionRespuesta
   | PerfilRespuesta
   | SesionRequeridaRespuesta
   | EncuestaRespuesta
@@ -183,6 +199,7 @@ export type Respuesta =
 export type Mensaje =
   | EvaluarMensaje
   | AbrirSesionMensaje
+  | HaySesionMensaje
   | RevisarVendedorMensaje
   | DameDocumentoMensaje
   | SesionCambiadaMensaje
@@ -214,6 +231,10 @@ export const esAbrirSesion = (m: unknown): m is AbrirSesionMensaje => esTipo(m, 
 
 export const esSesionCambiada = (m: unknown): m is SesionCambiadaMensaje =>
   esTipo(m, 'sesion-cambiada');
+
+export const esHaySesion = (m: unknown): m is HaySesionMensaje => esTipo(m, 'hay-sesion');
+
+export const esSesionRespuesta = (r: unknown): r is SesionRespuesta => esTipo(r, 'sesion');
 
 export const esEncuestaOferta = (m: unknown): m is EncuestaOfertaMensaje =>
   esTipo(m, 'encuesta-oferta');

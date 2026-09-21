@@ -180,12 +180,9 @@ export function ScamShieldBadge({
       alternarPanel();
       return;
     }
-    // Sin sesion no hay nada que contar dentro de la pagina: se abre la propia
-    // extension, que es donde se inicia sesion.
-    if (estado.fase === 'requiere-sesion') {
-      abrirSesion?.();
-      return;
-    }
+    // Si ya pedia sesion, este clic REINTENTA: quien acaba de iniciarla espera
+    // que el badge funcione sin recargar la pagina. Si sigue sin haberla, mas
+    // abajo se vuelve a abrir la extension.
     setEstado({ fase: 'analizando' });
     void evaluar().then((r) => {
       if (r === null) {

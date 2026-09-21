@@ -10,6 +10,7 @@ import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import {
   esDameDocumento,
   esSesionCambiada,
+  esSesionRespuesta,
   esEncuestaEnviada,
   esEncuestaRespuesta,
   esPerfilRespuesta,
@@ -202,6 +203,10 @@ export default defineContentScript({
     const traerPerfil = async (): Promise<boolean> => {
       const perfil = adapter.perfilDelVendedor?.(document) ?? null;
       if (perfil === null) return false;
+
+      // Sin sesion el analisis no va a salir igual: no se abre nada.
+      const sesion: unknown = await browser.runtime.sendMessage({ tipo: 'hay-sesion' });
+      if (!esSesionRespuesta(sesion) || !sesion.haySesion) return false;
 
       const peticion: RevisarVendedorMensaje = { tipo: 'revisar-vendedor', url: perfil };
       const bruto: unknown = await browser.runtime.sendMessage(peticion);
@@ -430,15 +435,29 @@ export default defineContentScript({
      * pierde nada: ni el veredicto ya calculado, ni el panel abierto, ni lo que
      * la persona estuviera escribiendo en la encuesta.
      *
+     * No basta con mirar si sigue enganchado: Facebook deja copias OCULTAS de sus
+     * botones (miden 0x0) y, al cambiar de publicacion sin recargar, el badge
+     * quedaba colgado de una de ellas. Por eso se comprueba que ocupe sitio.
+     *
      * El observador es barato: en la inmensa mayoria de mutaciones el nodo sigue
      * conectado y se sale en la primera linea. Las rafagas se agrupan en un solo
      * cuadro de animacion.
      */
     const host = ui.shadowHost;
+    // Un custom element es `inline` por defecto: sin esto no ocupa su ancho.
+    host.style.display = 'block';
+
+    /** Esta en el arbol Y ocupa sitio. Lo segundo no es redundante: ver abajo. */
+    const seVe = (): boolean => {
+      if (!host.isConnected) return false;
+      const caja = host.getBoundingClientRect();
+      return caja.width > 0 && caja.height > 0;
+    };
+
     const colgar = (): void => {
-      if (host.isConnected) return;
+      if (seVe()) return;
       const nueva = adapter.anclaBadge(document);
-      // Sin ancla todavia: la proxima mutacion lo reintenta cuando aparezca.
+      // Sin ancla visible todavia: la proxima mutacion lo reintenta.
       if (nueva === null) return;
       if (adapter.insercionBadge?.(nueva) === 'antes') nueva.before(host);
       else nueva.prepend(host);
@@ -446,7 +465,7 @@ export default defineContentScript({
 
     let recolgarPendiente = false;
     const vigia = new MutationObserver(() => {
-      if (recolgarPendiente || host.isConnected) return;
+      if (recolgarPendiente) return;
       recolgarPendiente = true;
       requestAnimationFrame(() => {
         recolgarPendiente = false;
