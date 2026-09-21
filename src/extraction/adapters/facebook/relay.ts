@@ -132,10 +132,16 @@ export const bloqueDeLasFotos = (texto: string): string => {
 };
 
 export const PATRONES = {
-  /** Id del perfil del vendedor dentro de la ficha. */
-  perfil: /marketplace\/profile\/(\d{10,17})/,
-  /** El mismo id, cuando solo viene dentro del objeto del vendedor. */
-  vendedorId: /"seller"\s*:\s*\{[^}]*?"id"\s*:\s*"(\d{10,17})"/,
+  /**
+   * Id del perfil del vendedor dentro de la ficha. Facebook escapa las barras en
+   * su JSON (`marketplace\/profile\/`), asi que la barra puede venir escapada.
+   */
+  perfil: /marketplace\\?\/profile\\?\/(\d{10,17})/,
+  /**
+   * El mismo id, cuando solo viene dentro del objeto del vendedor. En la ficha
+   * la clave es `marketplace_listing_seller`; en el perfil, `seller`.
+   */
+  vendedorId: /"(?:marketplace_listing_)?seller"\s*:\s*\{[^}]{0,300}?"id"\s*:\s*"(\d{10,17})"/,
   seguidores: /"marketplace_followers":\{"count":(\d+)\}/,
   promedio: /"five_star_ratings_average"\s*:\s*([\d.]+)/,
   cuantasCalificaciones:

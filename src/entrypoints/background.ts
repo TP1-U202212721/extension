@@ -14,6 +14,7 @@ import {
   type AnaliticaMensaje,
   type EncuestaEnvioMensaje,
   type Respuesta,
+  type SesionCambiadaMensaje,
 } from '../messaging.js';
 import { SesionRequeridaError, SIN_DETALLES } from '../transport/RiskEngineClient.js';
 import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.js';
@@ -66,6 +67,28 @@ let instrumentoEnMemoria: Instrumento | null = null;
 const instrumentoVigente = async (): Promise<Instrumento | null> => {
   instrumentoEnMemoria ??= await obtenerInstrumento();
   return instrumentoEnMemoria;
+};
+
+/**
+ * Avisa a las pestanas abiertas de que la sesion cambio, para que el badge deje
+ * de pedir sesion sin que haya que recargar la pagina.
+ *
+ * Se manda a todas y se ignoran los fallos: en las pestanas donde no corre el
+ * content script no hay quien lo reciba, y eso es normal.
+ */
+const avisarDeLaSesion = async (haySesion: boolean): Promise<void> => {
+  const aviso: SesionCambiadaMensaje = { tipo: 'sesion-cambiada', haySesion };
+  const pestanas = await browser.tabs.query({});
+  await Promise.all(
+    pestanas.map(async (pestana) => {
+      if (pestana.id === undefined) return;
+      try {
+        await browser.tabs.sendMessage(pestana.id, aviso);
+      } catch {
+        // Ahi no corre el content script: no hay nada que avisar.
+      }
+    }),
+  );
 };
 
 /**
@@ -130,10 +153,10 @@ export default defineBackground(() => {
   // La cookie del cliente web es la fuente de verdad de la sesion. El listener
   // va en el nivel superior a proposito: en MV3 el service worker se apaga, y
   // solo los eventos registrados aqui vuelven a despertarlo.
-  browser.cookies.onChanged.addListener(({ cookie }) => {
+  browser.cookies.onChanged.addListener(({ cookie, removed }) => {
     if (cookie.name !== COOKIE) return;
     if (cookie.domain.replace(/^\./, '') !== HOST_APP) return;
-    void sincronizarConCookie();
+    void sincronizarConCookie().then(() => avisarDeLaSesion(!removed));
   });
 
   // Al arrancar puede haber una sesion abierta de antes de instalar la extension.

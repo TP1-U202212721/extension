@@ -65,6 +65,17 @@ export interface AbrirSesionMensaje {
 }
 
 /**
+ * El background avisa a las pestanas de que la sesion cambio.
+ *
+ * Sin esto, quien iniciaba sesion se quedaba mirando un badge que seguia
+ * diciendo "inicia sesion" hasta recargar la pagina.
+ */
+export interface SesionCambiadaMensaje {
+  readonly tipo: 'sesion-cambiada';
+  readonly haySesion: boolean;
+}
+
+/**
  * El background le pide su documento al content script de la pestana del
  * perfil. Es el unico mensaje que va en esa direccion.
  */
@@ -174,6 +185,7 @@ export type Mensaje =
   | AbrirSesionMensaje
   | RevisarVendedorMensaje
   | DameDocumentoMensaje
+  | SesionCambiadaMensaje
   | AnaliticaMensaje
   | EncuestaOfertaMensaje
   | EncuestaEnvioMensaje
@@ -199,6 +211,9 @@ export const esDameDocumento = (m: unknown): m is DameDocumentoMensaje =>
   esTipo(m, 'dame-documento');
 
 export const esAbrirSesion = (m: unknown): m is AbrirSesionMensaje => esTipo(m, 'abrir-sesion');
+
+export const esSesionCambiada = (m: unknown): m is SesionCambiadaMensaje =>
+  esTipo(m, 'sesion-cambiada');
 
 export const esEncuestaOferta = (m: unknown): m is EncuestaOfertaMensaje =>
   esTipo(m, 'encuesta-oferta');

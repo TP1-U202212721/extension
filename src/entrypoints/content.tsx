@@ -9,6 +9,7 @@ import { esperarElemento } from '../extraction/dom.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import {
   esDameDocumento,
+  esSesionCambiada,
   esEncuestaEnviada,
   esEncuestaRespuesta,
   esPerfilRespuesta,
@@ -91,8 +92,15 @@ export default defineContentScript({
     // perfil en segundo plano y le pide su documento a ESTE listener, que corre
     // en la pestana del perfil. Se registra antes de cualquier otra cosa porque
     // ahi no hay ficha que identificar y el resto de `main` se sale enseguida.
+    /** Quien quiere enterarse de que la sesion acaba de iniciarse. */
+    const alIniciarSesion = new Set<() => void>();
+
     browser.runtime.onMessage.addListener(
       (mensaje: unknown, _emisor, responder: (r: PerfilRespuesta) => void) => {
+        if (esSesionCambiada(mensaje)) {
+          if (mensaje.haySesion) for (const avisar of alIniciarSesion) avisar();
+          return false;
+        }
         if (!esDameDocumento(mensaje)) return false;
         const suyo = adapterPara(location.href);
         responder({
@@ -389,6 +397,10 @@ export default defineContentScript({
             evaluar,
             interacciones: emisor,
             encuesta,
+            suscribirseASesion: (avisar: () => void) => {
+              alIniciarSesion.add(avisar);
+              return () => alIniciarSesion.delete(avisar);
+            },
             abrirSesion: () => {
               const peticion: AbrirSesionMensaje = { tipo: 'abrir-sesion' };
               void browser.runtime.sendMessage(peticion).catch(() => undefined);

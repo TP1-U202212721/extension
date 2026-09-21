@@ -125,6 +125,8 @@ export class FacebookAdapter implements MarketplaceAdapter {
     const enElEnlace = /\/marketplace\/profile\/(\d{10,17})/.exec(
       enlace?.getAttribute('href') ?? '',
     )?.[1];
+    // Tambien vale el enlace al perfil normal: Facebook lo usa cuando quien
+    // vende no tiene tienda, que es lo habitual en Marketplace.
     const id = enElEnlace ?? idDelPerfil(textoEmbebido(doc));
     return id === undefined ? null : PERFIL(id);
   }

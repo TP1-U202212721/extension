@@ -130,6 +130,23 @@ describe('Facebook: lo que publica la ficha', () => {
   });
 
   /**
+   * Facebook escapa las barras en su JSON, y en la ficha al vendedor lo llama
+   * `marketplace_listing_seller`, no `seller`. Con los patrones anteriores no se
+   * encontraba el perfil, y por eso no se abria solo.
+   */
+  it('encuentra el perfil con las barras escapadas y con el nombre largo de la clave', () => {
+    const conVendedor = estado().replace(
+      '"marketplace_listing_seller":null',
+      '"marketplace_listing_seller":{"__typename":"User","id":"100055566677788"},' +
+        '"seo":{"url":"https:\\\\/\\\\/www.facebook.com\\\\/marketplace\\\\/profile\\\\/100055566677788\\\\/"}',
+    );
+
+    expect(fb.perfilDelVendedor(cargar(conVendedor))).toBe(
+      'https://www.facebook.com/marketplace/profile/100055566677788/',
+    );
+  });
+
+  /**
    * Sin sesion iniciada Facebook manda `"marketplace_listing_seller":null`, y sin
    * vendedor no hay perfil que ofrecer ni datos que mandar.
    */

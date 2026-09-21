@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Shield, ShieldAlert, ShieldCheck, ShieldQuestion, Loader2, LogIn } from 'lucide-react';
 import type { FeatureSet } from '../domain/features.js';
@@ -97,6 +97,11 @@ interface Props {
    * background puede abrir el panel de la extension.
    */
   readonly abrirSesion?: () => void;
+  /**
+   * Avisa cuando la sesion se inicia, para que el badge deje de pedirla sin que
+   * haya que recargar la pagina. Devuelve como dejar de escuchar.
+   */
+  readonly suscribirseASesion?: (avisar: () => void) => () => void;
 }
 
 type FaseEncuesta = 'oculta' | 'visible' | 'enviando' | 'fallo' | 'gracias';
@@ -138,6 +143,7 @@ export function ScamShieldBadge({
   revisarVendedor,
   perfilLeido,
   abrirSesion,
+  suscribirseASesion,
 }: Props) {
   const flotar = (panel: ReactNode): ReactNode => (capa ? createPortal(panel, capa) : panel);
   const [estado, setEstado] = useState<Estado>({ fase: 'inactivo' });
@@ -146,6 +152,15 @@ export function ScamShieldBadge({
   const [faseEncuesta, setFaseEncuesta] = useState<FaseEncuesta>('oculta');
   const [consentimientoVigente, setConsentimientoVigente] = useState(false);
   const [vendedor, setVendedor] = useState<FaseVendedor>('sin-revisar');
+
+  // Al iniciar sesion, el badge vuelve a quedar listo para analizar.
+  useEffect(
+    () =>
+      suscribirseASesion?.(() => {
+        setEstado((anterior) => (anterior.fase === 'requiere-sesion' ? { fase: 'inactivo' } : anterior));
+      }),
+    [suscribirseASesion],
+  );
 
   /**
    * El evento se emite FUERA del actualizador de estado a proposito: React
