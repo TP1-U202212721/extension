@@ -375,7 +375,10 @@ export default defineContentScript({
             interacciones: emisor,
             encuesta,
             capa,
-            ...(revisarVendedor !== undefined && { revisarVendedor }),
+            ...(revisarVendedor !== undefined && {
+              revisarVendedor,
+              perfilLeido: () => htmlVendedor !== undefined,
+            }),
           }),
         );
       },

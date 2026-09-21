@@ -88,6 +88,11 @@ interface Props {
    * perfil por su cuenta.
    */
   readonly revisarVendedor?: () => Promise<Evaluado | null>;
+  /**
+   * Si la evaluacion ya incluyo el perfil del vendedor. Cuando se leyo solo, el
+   * aviso para revisarlo no tiene nada que ofrecer y no se muestra.
+   */
+  readonly perfilLeido?: () => boolean;
 }
 
 type FaseEncuesta = 'oculta' | 'visible' | 'enviando' | 'fallo' | 'gracias';
@@ -127,6 +132,7 @@ export function ScamShieldBadge({
   encuesta,
   capa,
   revisarVendedor,
+  perfilLeido,
 }: Props) {
   const flotar = (panel: ReactNode): ReactNode => (capa ? createPortal(panel, capa) : panel);
   const [estado, setEstado] = useState<Estado>({ fase: 'inactivo' });
@@ -197,7 +203,7 @@ export function ScamShieldBadge({
   };
 
   const avisoDelVendedor =
-    revisarVendedor === undefined || vendedor === 'revisado' ? null : (
+    revisarVendedor === undefined || vendedor === 'revisado' || perfilLeido?.() === true ? null : (
       <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
         <p className="text-sm font-semibold text-slate-800">
           {vendedor === 'fallo' ? 'No se pudo leer el perfil' : 'Faltan los datos del vendedor'}
