@@ -119,13 +119,19 @@ const aOrdinal = (n: number): Ordinal => {
  * No hay scraping: nadie visita nada. Es el mismo documento que el navegador del
  * comprador ya recibio, interpretado en el servidor en lugar de en el cliente.
  * La razon de que lo interprete el servidor esta en docs/adr/0004.
+ *
+ * `htmlVendedor` es el perfil del vendedor, y solo viaja en Facebook
+ * Marketplace y solo si el comprador pidio revisarlo. El tope de 8 MB se
+ * comprueba sobre la suma de los dos documentos, que es lo que va a pesar el
+ * cuerpo.
  */
 export const analizarDocumento = async (
   url: string,
   html: string,
   token: string,
+  htmlVendedor?: string,
 ): Promise<ResultadoDocumento> => {
-  const bytes = bytesDe(html);
+  const bytes = bytesDe(html) + (htmlVendedor === undefined ? 0 : bytesDe(htmlVendedor));
   if (bytes > MAX_BYTES) {
     // Se comprueba antes de subir: mandar 12 MB para recibir un 400 gasta los
     // datos del comprador para nada.
@@ -149,7 +155,7 @@ export const analizarDocumento = async (
     const res = await fetch(`${API_BASE_URL}/DocumentAnalysis/Features`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ url, html }),
+      body: JSON.stringify({ url, html, sellerHtml: htmlVendedor }),
       signal: abortar.signal,
     });
 

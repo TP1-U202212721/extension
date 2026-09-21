@@ -8,6 +8,8 @@ import {
   esEncuestaRetirarConsentimiento,
   esEncuestaOferta,
   esEvaluarMensaje,
+  esPerfilRespuesta,
+  esRevisarVendedor,
   type AnaliticaMensaje,
   type EncuestaEnvioMensaje,
   type Respuesta,
@@ -32,6 +34,17 @@ import { guardarConsulta } from '../transport/HistoryClient.js';
 const FALLO = 'No se pudo completar el analisis.';
 
 /**
+ * Cuanto se espera a que cargue el perfil del vendedor antes de rendirse.
+ *
+ * Facebook Marketplace no publica los datos del vendedor en la ficha: viven en
+ * su perfil. La extension NO lo abre por su cuenta; lo abre aqui solo cuando el
+ * comprador pulsa "Revisar al vendedor", en una pestana en segundo plano que se
+ * cierra sola. Si no se pudo leer (sin sesion en Facebook, o no cargo), se
+ * devuelve null y esos datos quedan sin medir: no se rellenan con ceros.
+ */
+const ESPERA_PERFIL_MS = 20_000;
+
+/**
  * Un fallo del motor deja a la extension sin ninguna caracteristica: con el
  * analisis en el servidor ya no queda una extraccion de cliente de la que tirar.
  * Es lo correcto, y se muestra como tal.
@@ -52,6 +65,49 @@ let instrumentoEnMemoria: Instrumento | null = null;
 const instrumentoVigente = async (): Promise<Instrumento | null> => {
   instrumentoEnMemoria ??= await obtenerInstrumento();
   return instrumentoEnMemoria;
+};
+
+/** Resuelve cuando la pestana termina de cargar, o al agotarse la espera. */
+const cargada = (tabId: number, ms: number): Promise<void> =>
+  new Promise((resolver) => {
+    const terminar = (): void => {
+      browser.tabs.onUpdated.removeListener(alCambiar);
+      clearTimeout(reloj);
+      resolver();
+    };
+    const alCambiar = (id: number, cambio: { status?: string }): void => {
+      if (id === tabId && cambio.status === 'complete') terminar();
+    };
+    const reloj = setTimeout(terminar, ms);
+    browser.tabs.onUpdated.addListener(alCambiar);
+  });
+
+/**
+ * Abre el perfil del vendedor en segundo plano, le pide su documento al content
+ * script que corre ahi, y cierra la pestana. Nunca se queda abierta: el cierre
+ * va en `finally`, tambien cuando algo falla.
+ */
+const leerPerfilDelVendedor = async (url: string): Promise<string | null> => {
+  let pestana: number | undefined;
+  try {
+    const abierta = await browser.tabs.create({ url, active: false });
+    pestana = abierta.id;
+    if (pestana === undefined) return null;
+    await cargada(pestana, ESPERA_PERFIL_MS);
+    const respuesta: unknown = await browser.tabs.sendMessage(pestana, { tipo: 'dame-documento' });
+    return esPerfilRespuesta(respuesta) ? respuesta.html : null;
+  } catch {
+    // Sin sesion en Facebook, pestana cerrada a mano o content script ausente.
+    return null;
+  } finally {
+    if (pestana !== undefined) {
+      try {
+        await browser.tabs.remove(pestana);
+      } catch {
+        // Ya no existe: la persona la cerro antes.
+      }
+    }
+  }
 };
 
 export default defineBackground(() => {
@@ -104,6 +160,13 @@ export default defineBackground(() => {
         return false;
       }
 
+      if (esRevisarVendedor(mensaje)) {
+        void leerPerfilDelVendedor(mensaje.url).then((html) => {
+          sendResponse({ tipo: 'perfil', html });
+        });
+        return true;
+      }
+
       if (esEncuestaRetirarConsentimiento(mensaje)) {
         void retirarConsentimiento();
         sendResponse({ tipo: 'listo' });
@@ -129,6 +192,7 @@ export default defineBackground(() => {
           url: mensaje.url,
           html: mensaje.html,
           insumos: mensaje.insumos,
+          ...(mensaje.htmlVendedor !== undefined && { htmlVendedor: mensaje.htmlVendedor }),
         })
         .then(({ verdict, features, detalles, traza }) => {
           // El veredicto sale PRIMERO. La analitica se encola despues y sin

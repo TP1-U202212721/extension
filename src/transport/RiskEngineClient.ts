@@ -19,6 +19,12 @@ export interface EvaluacionSolicitud {
    * MV3 no tiene DOMParser, asi que el background no podria hacerlo.
    */
   readonly insumos: Insumos;
+  /**
+   * Documento del perfil del vendedor, cuando sus datos no estan en la ficha y
+   * el comprador pidio revisarlo (Facebook Marketplace). Si no viaja, esas
+   * caracteristicas quedan sin determinar.
+   */
+  readonly htmlVendedor?: string;
 }
 
 /**

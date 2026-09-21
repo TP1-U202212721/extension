@@ -16,6 +16,7 @@ export const MARKETPLACE_MATCHES = [
   '*://*.amazon.com/*',
   '*://*.aliexpress.com/*',
   '*://*.temu.com/*',
+  '*://*.facebook.com/*',
 ] as const;
 
 /**

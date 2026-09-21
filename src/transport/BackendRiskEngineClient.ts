@@ -57,7 +57,7 @@ export class BackendRiskEngineClient implements RiskEngineClient {
     const [doc, dominio, vendedor, resenas] = await Promise.all([
       cronometrar(
         this.analizadores.documento,
-        () => analizarDocumento(solicitud.url, solicitud.html, token),
+        () => analizarDocumento(solicitud.url, solicitud.html, token, solicitud.htmlVendedor),
       ),
       cronometrar(
         this.analizadores.dominio,

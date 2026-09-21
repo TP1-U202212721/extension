@@ -1,4 +1,5 @@
 import { AliExpressAdapter } from './adapters/aliexpress/AliExpressAdapter.js';
+import { FacebookAdapter } from './adapters/facebook/FacebookAdapter.js';
 import { AmazonAdapter } from './adapters/amazon/AmazonAdapter.js';
 import { EbayAdapter } from './adapters/ebay/EbayAdapter.js';
 import { MercadoLibreAdapter } from './adapters/mercadolibre/MercadoLibreAdapter.js';
@@ -11,6 +12,7 @@ export const ADAPTERS: readonly MarketplaceAdapter[] = [
   new AliExpressAdapter(),
   new EbayAdapter(),
   new TemuAdapter(),
+  new FacebookAdapter(),
 ];
 
 /**

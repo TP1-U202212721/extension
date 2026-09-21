@@ -7,10 +7,14 @@ import { adapterPara } from '../extraction/registry.js';
 import { esperarElemento } from '../extraction/dom.js';
 import { ScamShieldBadge } from '../ui/ScamShieldBadge.js';
 import {
+  esDameDocumento,
   esEncuestaEnviada,
   esEncuestaRespuesta,
+  esPerfilRespuesta,
   esSesionRequerida,
   esVeredictoRespuesta,
+  type PerfilRespuesta,
+  type RevisarVendedorMensaje,
   type EncuestaDescartadaMensaje,
   type EncuestaRetirarConsentimientoMensaje,
   type EncuestaEnvioMensaje,
@@ -69,11 +73,25 @@ export default defineContentScript({
     '*://*.ebay.com/*',
     '*://*.ebay.es/*',
     '*://*.temu.com/*',
+    '*://*.facebook.com/*',
   ],
   cssInjectionMode: 'ui',
   runAt: 'document_idle',
 
   async main(ctx) {
+    // En Facebook Marketplace los datos del vendedor no estan en la ficha sino
+    // en su perfil. Cuando el comprador pide revisarlo, el background abre ese
+    // perfil en segundo plano y le pide su documento a ESTE listener, que corre
+    // en la pestana del perfil. Se registra antes de cualquier otra cosa porque
+    // ahi no hay ficha que identificar y el resto de `main` se sale enseguida.
+    browser.runtime.onMessage.addListener(
+      (mensaje: unknown, _emisor, responder: (r: PerfilRespuesta) => void) => {
+        if (!esDameDocumento(mensaje)) return false;
+        responder({ tipo: 'perfil', html: document.documentElement.outerHTML });
+        return false;
+      },
+    );
+
     const adapter = adapterPara(location.href);
     if (adapter === null) return;
 
@@ -123,6 +141,12 @@ export default defineContentScript({
       ESPERA_ANCLA_MS,
     );
 
+    /**
+     * El perfil del vendedor que el comprador acepto revisar. Vacio hasta que lo
+     * pida: la extension no abre nada por su cuenta.
+     */
+    let htmlVendedor: string | undefined;
+
     const evaluar = async (): Promise<Evaluado | null> => {
       const mensaje: EvaluarMensaje = {
         tipo: 'evaluar',
@@ -133,6 +157,7 @@ export default defineContentScript({
         insumos: adapter.insumos(document),
         sesionId: emisor.sesionId,
         categoria: adapter.categoriaGruesa(document),
+        ...(htmlVendedor !== undefined && { htmlVendedor }),
       };
       const bruto: unknown = await browser.runtime.sendMessage(mensaje);
       if (esSesionRequerida(bruto)) return null;
@@ -156,6 +181,25 @@ export default defineContentScript({
       // Una respuesta ilegible se trata como falta de evidencia, nunca como seguridad.
       return { verdict: SIN_RESPUESTA, features: SIN_FEATURES, detalles: SIN_DETALLES };
     };
+
+    /**
+     * Pide abrir el perfil del vendedor y vuelve a evaluar con lo que traiga.
+     *
+     * Devuelve null si no se pudo leer (sin sesion en Facebook, o la pagina no
+     * cargo): entonces los datos del vendedor siguen sin medirse, que es lo
+     * correcto. Es undefined cuando la plataforma no necesita perfil.
+     */
+    const perfil = adapter.perfilDelVendedor?.(document) ?? null;
+    const revisarVendedor =
+      perfil === null
+        ? undefined
+        : async (): Promise<Evaluado | null> => {
+            const peticion: RevisarVendedorMensaje = { tipo: 'revisar-vendedor', url: perfil };
+            const bruto: unknown = await browser.runtime.sendMessage(peticion);
+            if (!esPerfilRespuesta(bruto) || bruto.html === null) return null;
+            htmlVendedor = bruto.html;
+            return evaluar();
+          };
 
     /**
      * Que hizo el comprador DESPUES de ver la advertencia, que es la pregunta
@@ -289,6 +333,7 @@ export default defineContentScript({
             interacciones: emisor,
             encuesta,
             capa,
+            ...(revisarVendedor !== undefined && { revisarVendedor }),
           }),
         );
       },

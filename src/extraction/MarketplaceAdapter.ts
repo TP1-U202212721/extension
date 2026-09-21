@@ -61,6 +61,16 @@ export interface MarketplaceAdapter {
    * lo tapa y lo deja sin texto.
    */
   insercionBadge?(ancla: Element): InsercionBadge;
+  /**
+   * URL del perfil publico del vendedor, cuando la ficha no publica sus datos y
+   * viven en otra pagina. Devolver null (o no implementarlo) significa que todo
+   * lo del vendedor ya esta en la ficha.
+   *
+   * La extension NO abre esa pagina por su cuenta: solo la ofrece, y la abre si
+   * el comprador lo pide. Ver `revisarVendedor` en el content script.
+   */
+  perfilDelVendedor?(doc: Document): string | null;
+
   /** Tarjetas de listado o carrusel presentes en la pagina. Vacio si no hay. */
   tarjetas(doc: Document): readonly TarjetaListado[];
 

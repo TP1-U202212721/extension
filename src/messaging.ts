@@ -27,6 +27,12 @@ export interface EvaluarMensaje {
   readonly html: string;
   /** Insumos de reputacion y resenas, leidos del DOM vivo por el content script. */
   readonly insumos: Insumos;
+  /**
+   * El perfil del vendedor, cuando la plataforma no publica sus datos en la
+   * ficha y el comprador pidio revisarlo (Facebook Marketplace). Solo viaja si
+   * el comprador lo pidio: nunca se abre nada por iniciativa de la extension.
+   */
+  readonly htmlVendedor?: string;
   /** Sesion de navegacion de esta pestana, para la analitica de uso. */
   readonly sesionId: string;
   /**
@@ -34,6 +40,26 @@ export interface EvaluarMensaje {
    * en `src/analytics/Analitica.ts`; de aqui no sale nada al servidor.
    */
   readonly categoria: string;
+}
+
+/**
+ * Pide abrir el perfil del vendedor y devolver su documento.
+ *
+ * Lo abre el background en una pestana en segundo plano, lo lee y la cierra.
+ * Solo se manda cuando el comprador pulsa "Revisar al vendedor".
+ */
+export interface RevisarVendedorMensaje {
+  readonly tipo: 'revisar-vendedor';
+  /** URL del perfil, que el adaptador saco de la ficha abierta. */
+  readonly url: string;
+}
+
+/**
+ * El background le pide su documento al content script de la pestana del
+ * perfil. Es el unico mensaje que va en esa direccion.
+ */
+export interface DameDocumentoMensaje {
+  readonly tipo: 'dame-documento';
 }
 
 /** Un evento de analitica que solo el content script puede observar. */
@@ -110,6 +136,16 @@ export interface EncuestaEnviadaRespuesta {
   readonly resultado: ResultadoDeEnvio;
 }
 
+/**
+ * El documento del perfil del vendedor. `html` en null significa que no se pudo
+ * leer: sin sesion en Facebook, o la pestana no llego a cargar. Entonces los
+ * datos del vendedor quedan sin medir, que es lo correcto: no se rellenan.
+ */
+export interface PerfilRespuesta {
+  readonly tipo: 'perfil';
+  readonly html: string | null;
+}
+
 /** Acuse de recibo de lo que no devuelve nada. */
 export interface ListoRespuesta {
   readonly tipo: 'listo';
@@ -117,6 +153,7 @@ export interface ListoRespuesta {
 
 export type Respuesta =
   | VeredictoRespuesta
+  | PerfilRespuesta
   | SesionRequeridaRespuesta
   | EncuestaRespuesta
   | EncuestaEnviadaRespuesta
@@ -124,6 +161,8 @@ export type Respuesta =
 
 export type Mensaje =
   | EvaluarMensaje
+  | RevisarVendedorMensaje
+  | DameDocumentoMensaje
   | AnaliticaMensaje
   | EncuestaOfertaMensaje
   | EncuestaEnvioMensaje
@@ -141,6 +180,12 @@ const esTipo = (m: unknown, tipo: string): boolean =>
 export const esEvaluarMensaje = (m: unknown): m is EvaluarMensaje => esTipo(m, 'evaluar');
 
 export const esAnaliticaMensaje = (m: unknown): m is AnaliticaMensaje => esTipo(m, 'analitica');
+
+export const esRevisarVendedor = (m: unknown): m is RevisarVendedorMensaje =>
+  esTipo(m, 'revisar-vendedor');
+
+export const esDameDocumento = (m: unknown): m is DameDocumentoMensaje =>
+  esTipo(m, 'dame-documento');
 
 export const esEncuestaOferta = (m: unknown): m is EncuestaOfertaMensaje =>
   esTipo(m, 'encuesta-oferta');
@@ -165,3 +210,5 @@ export const esEncuestaRespuesta = (r: unknown): r is EncuestaRespuesta => esTip
 
 export const esEncuestaEnviada = (r: unknown): r is EncuestaEnviadaRespuesta =>
   esTipo(r, 'encuesta-enviada');
+
+export const esPerfilRespuesta = (r: unknown): r is PerfilRespuesta => esTipo(r, 'perfil');

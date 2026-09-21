@@ -13,6 +13,13 @@ import { COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 import { EncuestaSatisfaccion } from './EncuestaSatisfaccion.js';
 import { VerdictPanel } from './VerdictPanel.js';
 
+/** Lo que devuelve una evaluacion completa. */
+export interface Evaluado {
+  readonly verdict: Verdict;
+  readonly features: FeatureSet;
+  readonly detalles: Detalles;
+}
+
 type Estado =
   | { readonly fase: 'inactivo' }
   | { readonly fase: 'analizando' }
@@ -65,11 +72,7 @@ export interface CanalDeEncuesta {
 interface Props {
   readonly plataforma: string;
   /** Devuelve null cuando el motor exige una sesion que no hay. */
-  readonly evaluar: () => Promise<{
-    verdict: Verdict;
-    features: FeatureSet;
-    detalles: Detalles;
-  } | null>;
+  readonly evaluar: () => Promise<Evaluado | null>;
   readonly interacciones?: InteraccionesDelBadge;
   readonly encuesta?: CanalDeEncuesta;
   /**
@@ -77,9 +80,20 @@ interface Props {
    * de la columna de compra. Sin ella se dibujan junto al badge.
    */
   readonly capa?: HTMLElement | null;
+  /**
+   * Vuelve a evaluar tras leer el perfil del vendedor, y null si no se pudo.
+   *
+   * Solo llega en las plataformas donde los datos del vendedor NO estan en la
+   * ficha (Facebook Marketplace). Se ofrece como boton: la extension no abre el
+   * perfil por su cuenta.
+   */
+  readonly revisarVendedor?: () => Promise<Evaluado | null>;
 }
 
 type FaseEncuesta = 'oculta' | 'visible' | 'enviando' | 'fallo' | 'gracias';
+
+/** En que punto va la revision del perfil del vendedor, si la plataforma la pide. */
+type FaseVendedor = 'sin-revisar' | 'revisando' | 'revisado' | 'fallo';
 
 /**
  * Los paneles desplegados flotan sobre la pagina, pegados al borde derecho de la
@@ -106,13 +120,21 @@ const FLOTANTE =
  * Asi el comprador decide cuando analizar, y la extension no hace trabajo ni
  * emite peticiones que el usuario no pidio.
  */
-export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta, capa }: Props) {
+export function ScamShieldBadge({
+  plataforma,
+  evaluar,
+  interacciones,
+  encuesta,
+  capa,
+  revisarVendedor,
+}: Props) {
   const flotar = (panel: ReactNode): ReactNode => (capa ? createPortal(panel, capa) : panel);
   const [estado, setEstado] = useState<Estado>({ fase: 'inactivo' });
   const [abierto, setAbierto] = useState(false);
   const [instrumento, setInstrumento] = useState<Instrumento | null>(null);
   const [faseEncuesta, setFaseEncuesta] = useState<FaseEncuesta>('oculta');
   const [consentimientoVigente, setConsentimientoVigente] = useState(false);
+  const [vendedor, setVendedor] = useState<FaseVendedor>('sin-revisar');
 
   /**
    * El evento se emite FUERA del actualizador de estado a proposito: React
@@ -155,6 +177,49 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta, 
       });
     });
   };
+
+  /**
+   * Lee el perfil del vendedor y rehace el veredicto con lo que traiga. Un fallo
+   * no rompe nada: el reporte se queda como estaba, sin esos datos.
+   */
+  const revisar = (): void => {
+    if (revisarVendedor === undefined || vendedor === 'revisando') return;
+    setVendedor('revisando');
+    void revisarVendedor().then((r) => {
+      if (r === null) {
+        setVendedor('fallo');
+        return;
+      }
+      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles });
+      setVendedor('revisado');
+      interacciones?.advertenciaMostrada(veredictoAnalitico(r.verdict));
+    });
+  };
+
+  const avisoDelVendedor =
+    revisarVendedor === undefined || vendedor === 'revisado' ? null : (
+      <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <p className="text-sm font-semibold text-slate-800">
+          {vendedor === 'fallo' ? 'No se pudo leer el perfil' : 'Faltan los datos del vendedor'}
+        </p>
+        <p className="mt-1 text-xs text-slate-600">
+          {vendedor === 'fallo'
+            ? 'Revisa que tengas la sesion de Facebook iniciada y vuelve a intentarlo.'
+            : 'Facebook no publica las calificaciones del vendedor en la publicacion, sino en su perfil.'}
+        </p>
+        <button
+          type="button"
+          onClick={revisar}
+          disabled={vendedor === 'revisando'}
+          className="mt-2 w-full rounded-xl bg-slate-800 px-3 py-2 text-sm font-bold text-white disabled:opacity-60"
+        >
+          {vendedor === 'revisando' ? 'Revisando al vendedor...' : 'Revisar al vendedor'}
+        </button>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Se abre su perfil en segundo plano para leer sus calificaciones, y se cierra solo.
+        </p>
+      </div>
+    );
 
   const clave =
     estado.fase === 'listo'
@@ -275,6 +340,7 @@ export function ScamShieldBadge({ plataforma, evaluar, interacciones, encuesta, 
         estado.fase === 'listo' &&
         flotar(
         <div className={`${FLOTANTE} w-[380px] rounded-2xl`}>
+          {avisoDelVendedor}
           <VerdictPanel
             verdict={estado.verdict}
             features={estado.features}
