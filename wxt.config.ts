@@ -1,5 +1,6 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
+import { cssSinRem } from './src/build/remAPx.js';
 
 // Identificador permanente en AMO. Cambiarlo crea un add-on distinto y abandona
 // la configuracion de todos los usuarios: no se toca.
@@ -19,17 +20,6 @@ export const MARKETPLACE_MATCHES = [
   '*://*.facebook.com/*',
 ] as const;
 
-/**
- * Pasa los `rem` del CSS compilado a `px` (1rem = 16px).
- *
- * El shadow root aisla los estilos, pero `rem` sigue refiriendose a la fuente
- * del `<html>` de la PAGINA. Temu la pone en 100px, y el badge de Tailwind salia
- * seis veces mas grande. En px, el badge mide lo mismo en cualquier sitio.
- */
-const REM = /(-?\d*\.?\d+)rem\b/g;
-export const remAPx = (css: string): string =>
-  css.replace(REM, (_, n: string) => `${String(Number.parseFloat(n) * 16)}px`);
-
 /** Lo minimo del bundle de Rollup que toca el plugin; `vite` no es dependencia directa. */
 interface ArchivoDelBundle {
   type: string;
@@ -37,13 +27,17 @@ interface ArchivoDelBundle {
   source?: unknown;
 }
 
-const cssSinRem = () => ({
+/**
+ * Pasa los `rem` del CSS compilado a `px`: ver `src/build/remAPx.ts`, donde esta
+ * la conversion y por que solo toca valores y no selectores.
+ */
+const pluginCssSinRem = () => ({
   name: 'scamshield-css-sin-rem',
   enforce: 'post' as const,
   generateBundle(_opciones: unknown, bundle: Record<string, ArchivoDelBundle>) {
     for (const archivo of Object.values(bundle)) {
       if (archivo.type === 'asset' && archivo.fileName.endsWith('.css') && typeof archivo.source === 'string') {
-        archivo.source = remAPx(archivo.source);
+        archivo.source = cssSinRem(archivo.source);
       }
     }
   },
@@ -62,7 +56,7 @@ export default defineConfig({
   imports: false,
 
   vite: () => ({
-    plugins: [tailwindcss(), cssSinRem()],
+    plugins: [tailwindcss(), pluginCssSinRem()],
   }),
 
   manifest: ({ browser }) => ({
