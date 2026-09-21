@@ -1,6 +1,6 @@
 {
   "name": "scamshield-extension",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "description": "Extension de navegador de ScamShield: estima el riesgo de una publicacion leyendo el DOM ya renderizado, sin scraping.",
