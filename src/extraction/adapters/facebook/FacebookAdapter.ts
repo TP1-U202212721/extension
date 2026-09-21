@@ -1,6 +1,11 @@
 import { todos } from '../../dom.js';
 import type { Insumos } from '../../../domain/insumos.js';
-import type { MarketplaceAdapter, Publicacion, TarjetaListado } from '../../MarketplaceAdapter.js';
+import type {
+  InsercionBadge,
+  MarketplaceAdapter,
+  Publicacion,
+  TarjetaListado,
+} from '../../MarketplaceAdapter.js';
 import { categoriaGruesaDe, insumosDe } from './insumos.js';
 import { idDelPerfil, textoEmbebido } from './relay.js';
 
@@ -20,18 +25,25 @@ const ENLACE_FICHA = 'a[href*="/marketplace/item/"]';
 const MAX_NIVELES = 6;
 
 /**
- * Donde anclar el badge en la ficha. PENDIENTE: Facebook exige sesion iniciada,
- * asi que la ficha no se pudo capturar con un navegador automatizado para
- * verificar selectores. Sin ancla, el content script fija el badge en una
- * esquina: se ve y funciona, solo que no junto al precio.
+ * Donde anclar el badge: junto a los botones de la publicacion, que en
+ * Marketplace son "Message", "Save" y "Share". El badge va ANTES del boton de
+ * mensaje. Facebook ofusca sus clases, pero esos botones llevan `aria-label`
+ * estable, traducido al idioma de la cuenta.
+ *
+ * Verificado sobre una publicacion real el 2026-09-21.
  */
-const ANCLA_BADGE: readonly string[] = [];
+const ANCLA_BADGE: readonly string[] = [
+  '[role="button"][aria-label="Message"]',
+  '[role="button"][aria-label="Mensaje"]',
+  '[role="button"][aria-label="Enviar mensaje"]',
+  '[role="button"][aria-label="Send message"]',
+];
 
 /**
- * Controles de compra. En Marketplace no hay: la compra se cierra por chat, con
- * "Enviar mensaje". Se deja vacio hasta verificarlo sobre una ficha real.
+ * Controles de compra. En Marketplace no se compra: se contacta al vendedor por
+ * chat, y ese clic es el equivalente a "comprar" para lo que la tesis mide.
  */
-const COMPRA: readonly string[] = [];
+const COMPRA: readonly string[] = ANCLA_BADGE;
 
 /** Ids de fichas enlazadas dentro de un elemento. */
 const idsDentro = (el: Element): Set<string> => {
@@ -82,8 +94,20 @@ export class FacebookAdapter implements MarketplaceAdapter {
     return { plataforma: this.plataforma, publicacionId: m[1] };
   }
 
+  /**
+   * Facebook deja en el DOM copias ocultas de sus botones (miden 0x0): el badge
+   * tiene que colgar de la que se ve.
+   */
   anclaBadge(doc: Document): Element | null {
-    return ANCLA_BADGE.length === 0 ? null : doc.querySelector(ANCLA_BADGE.join(','));
+    for (const boton of doc.querySelectorAll(ANCLA_BADGE.join(','))) {
+      const caja = boton.getBoundingClientRect();
+      if (caja.width > 0 && caja.height > 0) return boton;
+    }
+    return null;
+  }
+
+  insercionBadge(_ancla: Element): InsercionBadge {
+    return 'antes';
   }
 
   /**

@@ -306,7 +306,10 @@ export default defineContentScript({
     const ui = await createShadowRootUi(ctx, {
       name: 'scamshield-badge',
       position: ancla !== null ? 'inline' : 'overlay',
-      anchor: ancla ?? 'body',
+      // Sin ancla cuelga del <html>, no del <body>: Facebook pone `transform` en
+      // sus contenedores, y ahi dentro la posicion fija del respaldo se mide
+      // contra ellos, no contra la ventana, y el badge queda descolocado.
+      anchor: ancla ?? document.documentElement,
       // Dentro de un contenedor va como primer hijo; junto a un control (el boton
       // de comprar), como hermano previo, para no taparlo.
       append: ancla !== null && adapter.insercionBadge?.(ancla) === 'antes' ? 'before' : 'first',

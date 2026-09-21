@@ -1,18 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { FacebookAdapter } from '../../src/extraction/adapters/facebook/FacebookAdapter.js';
 import { datosDelPerfil } from '../../src/extraction/adapters/facebook/insumos.js';
-import { textoEmbebido } from '../../src/extraction/adapters/facebook/relay.js';
+import {
+  bloqueDeLaFicha,
+  cuantasFotos,
+  descuento,
+  textoEmbebido,
+} from '../../src/extraction/adapters/facebook/relay.js';
 import { adapterPara } from '../../src/extraction/registry.js';
 
 const fb = new FacebookAdapter();
 
+const ID = '1234567890123456';
+const URL_FICHA = `https://www.facebook.com/marketplace/item/${ID}/`;
+
 describe('Facebook: reconocimiento de la publicacion', () => {
   it('reconoce la ficha por el id tras /marketplace/item/', () => {
-    const url = new URL('https://www.facebook.com/marketplace/item/1234567890123456/');
+    const url = new URL(URL_FICHA);
     expect(fb.reconoce(url)).toBe(true);
     expect(fb.identificar(url)).toEqual({
       plataforma: 'Facebook Marketplace',
-      publicacionId: '1234567890123456',
+      publicacionId: ID,
     });
   });
 
@@ -24,9 +32,9 @@ describe('Facebook: reconocimiento de la publicacion', () => {
   });
 
   it('no confunde dominios que solo contienen el nombre', () => {
-    expect(fb.esPlataforma(new URL('https://facebook.com.ofertas.xyz/marketplace/item/1234567890123456'))).toBe(
-      false,
-    );
+    expect(
+      fb.esPlataforma(new URL(`https://facebook.com.ofertas.xyz/marketplace/item/${ID}`)),
+    ).toBe(false);
     expect(fb.esPlataforma(new URL('https://mifacebook.com/'))).toBe(false);
   });
 
@@ -38,118 +46,184 @@ describe('Facebook: reconocimiento de la publicacion', () => {
 });
 
 /**
- * Documento DERIVADO: reproduce la forma del estado que Facebook incrusta, con
- * los mismos campos que leia el scraper por URL del backend (`FacebookHelper`).
- * Los patrones siguen PENDIENTES de verificar contra una ficha real: Facebook
- * exige sesion iniciada y no se pudo capturar con un navegador automatizado.
+ * Estado con la forma REAL que Facebook incrusta, comprobada sobre una publicacion
+ * de facebook.com/marketplace el 2026-09-21 (sin sesion iniciada).
+ *
+ * Trae dos publicaciones a proposito: la abierta y una relacionada. La pagina real
+ * traia 22, y leer sin acotar devolvia el titulo y el precio de otra.
  */
-const estado = (extra: string): string =>
-  `{"data":{"viewer":{"marketplace_product_details_page":{"target":{"id":"1234567890123456",` +
-  `"marketplace_listing_title":"Bicicleta montanera rodado 29",` +
-  `"marketplace_listing_category":{"name":"Bicicletas","seo_info":{"seo_url":"/marketplace/category/bikes"}},` +
-  `"story":{"actors":[{"name":"Juan P\\u00e9rez"},"commerce_badges_info":{"badges":[{"text":"Calificaci\\u00f3n alta"}]}]},` +
-  `"seller":{"id":"100011122233344","short_name":"Juan"}${extra}}}}}}`;
+const registro = (
+  id: string,
+  titulo: string,
+  precio: string,
+  tachado: string,
+  extra = '',
+): string =>
+  // El titulo vive en un registro diminuto y el resto cuelga de su padre, que es
+  // como Facebook lo manda de verdad.
+  `{"story":{"__typename":"GroupCommerceProductItem","id":"${id}",` +
+  `"marketplace_listing_title":"${titulo}","base_marketplace_listing_title":"${titulo}"},` +
+  `"listing_price":{"amount":"${precio}","formatted_amount":"PEN ${precio}"},` +
+  `"strikethrough_price":${tachado === '' ? 'null' : `{"amount":"${tachado}"}`},` +
+  `"redacted_description":{"text":"Alquilo para matrimonios, acepto yape. Sin garantia."},` +
+  `"marketplace_listing_category":{"slug":"${titulo.startsWith('Nissan') ? 'vehicles' : 'bikes'}","id":"759201041254543"},` +
+  `"marketplace_listing_seller":null,"commerce_badges_info":{"source_summary":null,"badges":[]},` +
+  `"is_live":true${extra}}`;
 
-const cargar = (json: string, html = ''): Document =>
-  new DOMParser().parseFromString(
-    `<!DOCTYPE html><html><head><title>Marketplace</title></head><body>${html}` +
-      `<script>requireLazy(["RelayPrefetchedStreamCache"],function(c){c.next("x",${json})})</script>` +
-      `</body></html>`,
-    'text/html',
-  );
+/** Las fotos solo estan en el bloque del visor, no en el registro de la ficha. */
+const fotos = (cuantas: number): string =>
+  `"marketplace_product_details_page":{"target":{"__typename":"GroupCommerceProductItem","id":"${ID}",` +
+  `"listing_photos":[${Array.from({ length: cuantas }, () => '{"__typename":"ProductImage"}').join(',')}]}}`;
+
+const estado = (extra = ''): string =>
+  `{"require":[["RelayPrefetchedStreamCache","next",[],["x",{"__bbox":{"result":{"data":{` +
+  `"viewer":{${fotos(8)}},` +
+  `"listings":[${registro(ID, 'Carcochitas', '11000.00', '', extra)},` +
+  `${registro('9999999999999999', 'Nissan Hikari 1987', '25000.00', '30000.00')}]` +
+  `}}}}]]]}`;
+
+/** happy-dom deja fijar la URL del documento; los tipos de `window` no lo saben. */
+const conUrl = window as unknown as { happyDOM: { setURL: (url: string) => void } };
+
+const cargar = (json: string, html = '', url = URL_FICHA): Document => {
+  conUrl.happyDOM.setURL(url);
+  document.documentElement.innerHTML =
+    `<head><title>Marketplace</title></head><body>${html}` +
+    `<script>${json}</script></body>`;
+  return document;
+};
 
 describe('Facebook: lo que publica la ficha', () => {
-  const doc = cargar(estado(''));
+  /** Lo primero que hace todo: quedarse con el registro de ESTA publicacion. */
+  it('acota al registro de la publicacion abierta, no al de las relacionadas', () => {
+    const bloque = bloqueDeLaFicha(estado(), ID);
 
-  it('lee al vendedor con su distintivo, sin inventar lo que no esta', () => {
-    const { vendedor } = fb.insumos(doc);
-    expect(vendedor).toEqual({
+    expect(bloque).toContain('Carcochitas');
+    expect(bloque).not.toContain('Nissan');
+    expect(descuento(bloque)).toBeUndefined(); // esta no tiene precio tachado
+    expect(cuantasFotos(estado())).toBe(8);
+  });
+
+  it('lee la categoria de la publicacion abierta', () => {
+    expect(fb.insumos(cargar(estado())).categoria).toBe('bikes');
+    expect(fb.categoriaGruesa(cargar(estado()))).toBe('bikes');
+  });
+
+  it('sin el id en la URL no se lee nada: mejor eso que leer otro anuncio', () => {
+    const doc = cargar(estado(), '', 'https://www.facebook.com/marketplace/');
+    expect(fb.insumos(doc).categoria).toBe('');
+  });
+
+  it('calcula el descuento solo cuando hay precio tachado', () => {
+    const relacionada = bloqueDeLaFicha(estado(), '9999999999999999');
+
+    expect(relacionada).toContain('Nissan');
+    expect(descuento(relacionada)).toBeCloseTo(16.67, 1); // 30000 -> 25000
+  });
+
+  it('encuentra el perfil del vendedor por el enlace de la ficha', () => {
+    const doc = cargar(estado(), '<a href="/marketplace/profile/100055566677788/">Ver perfil</a>');
+
+    expect(fb.perfilDelVendedor(doc)).toBe(
+      'https://www.facebook.com/marketplace/profile/100055566677788/',
+    );
+  });
+
+  /**
+   * Sin sesion iniciada Facebook manda `"marketplace_listing_seller":null`, y sin
+   * vendedor no hay perfil que ofrecer ni datos que mandar.
+   */
+  it('sin vendedor no devuelve datos ni perfil', () => {
+    const doc = cargar(estado());
+
+    expect(fb.insumos(doc).vendedor).toBeNull();
+    expect(fb.perfilDelVendedor(doc)).toBeNull();
+  });
+
+  /** Facebook deja copias ocultas de sus botones: el badge va en la que se ve. */
+  it('ancla el badge antes del boton de mensaje visible', () => {
+    const doc = cargar(
+      estado(),
+      '<div role="button" aria-label="Message">Message</div>',
+    );
+    const ancla = doc.querySelector('[aria-label="Message"]');
+    // happy-dom no calcula cajas: se simula la del boton visible.
+    Object.defineProperty(ancla as object, 'getBoundingClientRect', {
+      value: () => ({ width: 164, height: 36 }),
+      configurable: true,
+    });
+
+    const elegida = fb.anclaBadge(doc);
+    expect(elegida?.getAttribute('aria-label')).toBe('Message');
+    expect(elegida !== null && fb.insercionBadge(elegida)).toBe('antes');
+  });
+
+  /** En Marketplace no se compra: se escribe al vendedor, y ese clic es el que cuenta. */
+  it('el control que mide la tesis es el boton de mensaje', () => {
+    expect(fb.selectoresDeCompra().join(',')).toContain('aria-label="Message"');
+  });
+});
+
+/**
+ * PENDIENTE DE VERIFICAR: sin sesion iniciada Facebook no manda nada del vendedor,
+ * asi que estos patrones siguen siendo los del scraper por URL del backend.
+ */
+describe('Facebook: lo que publica el perfil del vendedor', () => {
+  const PERFIL =
+    `{"data":{"seller":{"id":"100011122233344","short_name":"Juan",` +
+    `"name":"Juan P\\u00e9rez"},"commerce_badges_info":{"badges":[{"text":"Calificaci\\u00f3n alta"}]},` +
+    `"marketplace_followers":{"count":312},` +
+    `"five_star_ratings_average":4.6,` +
+    `"seller_buyer_combined":{"five_star_total_rating_count_by_role":27},` +
+    `"listings":[` +
+    `{"__typename":"GroupCommerceProductItem","id":"991100","is_live":true,"is_sold":false},` +
+    `{"__typename":"GroupCommerceProductItem","id":"991101","is_live":true,"is_sold":false},` +
+    `{"__typename":"GroupCommerceProductItem","id":"991102","is_live":true,"is_sold":true}]}}`;
+
+  const perfil = (): Document =>
+    cargar(PERFIL, '', 'https://www.facebook.com/marketplace/profile/100011122233344/');
+
+  it('lee al vendedor con su distintivo, su promedio y sus calificaciones', () => {
+    expect(fb.insumos(perfil()).vendedor).toEqual({
       sellerName: 'Juan Pérez',
       platform: 'Facebook Marketplace',
+      ratingAverage: 4.6,
+      ratingCount: 27,
       isRecognizedSeller: true,
       badgeLabel: 'Calificación alta',
     });
   });
 
-  it('lee la categoria de la publicacion', () => {
-    expect(fb.insumos(doc).categoria).toBe('Bicicletas');
-    expect(fb.categoriaGruesa(doc)).toBe('Bicicletas');
-  });
-
-  /** Las calificaciones viven en el perfil: en la ficha no hay ninguna. */
-  it('no trae resenas', () => {
-    expect(fb.insumos(doc).resenas).toEqual([]);
-  });
-
-  it('encuentra el perfil del vendedor por el enlace de la ficha', () => {
-    const conEnlace = cargar(
-      estado(''),
-      '<a href="/marketplace/profile/100055566677788/">Ver perfil</a>',
-    );
-    expect(fb.perfilDelVendedor(conEnlace)).toBe(
-      'https://www.facebook.com/marketplace/profile/100055566677788/',
-    );
-  });
-
-  /** Si la maquetacion cambia y el enlace no esta, queda el id del estado. */
-  it('y si no hay enlace, por el id del vendedor en el estado', () => {
-    expect(fb.perfilDelVendedor(doc)).toBe(
-      'https://www.facebook.com/marketplace/profile/100011122233344/',
-    );
-  });
-
-  it('sin vendedor reconocible no devuelve datos ni perfil', () => {
-    const vacio = cargar('{"data":{}}');
-    expect(fb.insumos(vacio).vendedor).toBeNull();
-    expect(fb.perfilDelVendedor(vacio)).toBeNull();
-  });
-});
-
-describe('Facebook: lo que publica el perfil del vendedor', () => {
-  const PERFIL =
-    `,"marketplace_followers":{"count":312}` +
-    `,"five_star_ratings_average":4.6` +
-    `,"seller_buyer_combined":{"five_star_total_rating_count_by_role":27}` +
-    `,"listings":[` +
-    `{"__typename":"GroupCommerceProductItem","id":"991100","is_live":true,"is_sold":false},` +
-    `{"__typename":"GroupCommerceProductItem","id":"991101","is_live":true,"is_sold":false},` +
-    `{"__typename":"GroupCommerceProductItem","id":"991102","is_live":true,"is_sold":true}]`;
-
-  const doc = cargar(estado(PERFIL));
-
-  it('lee promedio y cantidad de calificaciones', () => {
-    const { vendedor } = fb.insumos(doc);
-    expect(vendedor?.ratingAverage).toBe(4.6);
-    expect(vendedor?.ratingCount).toBe(27);
-  });
-
   it('lee seguidores y publicaciones activas, sin contar las vendidas', () => {
-    expect(datosDelPerfil(textoEmbebido(doc))).toEqual({
+    expect(datosDelPerfil(textoEmbebido(perfil()))).toEqual({
       seguidores: 312,
       publicacionesActivas: 2,
     });
   });
 
-  it('lo que el perfil no publica se omite, no se manda en cero', () => {
-    const sinNada = cargar(estado(''));
-    expect(datosDelPerfil(textoEmbebido(sinNada))).toEqual({});
-    expect(fb.insumos(sinNada).vendedor).not.toHaveProperty('ratingAverage');
+  /** Un vendedor sin distintivo trae el arreglo vacio: no se inventa uno. */
+  it('con el arreglo de distintivos vacio no se declara distintivo', () => {
+    const sinDistintivo = PERFIL.replace(
+      '"badges":[{"text":"Calificaci\\u00f3n alta"}]',
+      '"badges":[]',
+    );
+    const doc = cargar(
+      sinDistintivo,
+      '',
+      'https://www.facebook.com/marketplace/profile/100011122233344/',
+    );
+
+    expect(fb.insumos(doc).vendedor).not.toHaveProperty('badgeLabel');
   });
 
-  it('lee las valoraciones con sus estrellas, sin quien las escribio', () => {
-    const relleno = 'x'.repeat(220);
-    const conResenas = cargar(
-      estado(
-        `,"ratings":[` +
-          `{"__typename":"MarketplaceC2CSellerRating","rating_value":"FIVE_STAR_FIVE","review_text":"Todo bien, muy puntual","rater_name":"Ana","relleno":"${relleno}","cursor":"1"},` +
-          `{"__typename":"MarketplaceC2CSellerRating","rating_value":"FIVE_STAR_TWO","review_text":"Nunca llego el producto","rater_name":"Luis","relleno":"${relleno}","cursor":"2"}]`,
-      ),
+  it('lo que el perfil no publica se omite, no se manda en cero', () => {
+    const doc = cargar(
+      '{"data":{"seller":{"id":"1"}}}',
+      '',
+      'https://www.facebook.com/marketplace/profile/1/',
     );
-    const { resenas } = fb.insumos(conResenas);
-    expect(resenas).toEqual([
-      { text: 'Todo bien, muy puntual', rating: 5 },
-      { text: 'Nunca llego el producto', rating: 2 },
-    ]);
+
+    expect(datosDelPerfil(textoEmbebido(doc))).toEqual({});
   });
 });
 
@@ -161,8 +235,10 @@ describe('Facebook: tarjetas del listado', () => {
          <div class="t"><a href="/marketplace/item/1111111111111111/"><img src="data:,"><span>Uno</span></a></div>
          <div class="t"><a href="/marketplace/item/2222222222222222/"><img src="data:,"><span>Dos</span></a></div>
        </div>`,
+      'https://www.facebook.com/marketplace/',
     );
     const tarjetas = fb.tarjetas(doc);
+
     expect(tarjetas).toHaveLength(2);
     for (const t of tarjetas) {
       expect(t.href).toMatch(/\/marketplace\/item\/\d{10,20}/);

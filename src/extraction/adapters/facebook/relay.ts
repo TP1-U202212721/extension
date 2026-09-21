@@ -11,8 +11,15 @@
  * documento que la extension le entrega (docs/adr/0004). Lo que se lee aqui es
  * lo minimo para la reputacion, las resenas y el enlace al perfil.
  *
- * PENDIENTE DE VERIFICAR contra una ficha real: los patrones vienen del scraper
- * anterior y Facebook los cambia seguido. Por eso todos estan en este archivo.
+ * Verificado contra una publicacion real de facebook.com/marketplace el
+ * 2026-09-21, SIN sesion iniciada. Lo del vendedor (`marketplace_listing_seller`)
+ * llega en null mientras no haya sesion, asi que esos patrones siguen sin
+ * verificar y estan marcados uno por uno.
+ *
+ * La pagina trae los datos de MUCHAS publicaciones (las relacionadas: 22 en la
+ * que se verifico). Por eso nada se busca en el texto entero: primero se acota
+ * al registro de ESTA publicacion con `bloqueDeLaFicha`, y ahi dentro se lee.
+ * Buscar suelto devolvia el titulo y el precio de otro anuncio.
  */
 
 /** Todo el texto de los scripts embebidos, que es donde vive el estado. */
@@ -41,6 +48,89 @@ const desescapar = (crudo: string): string =>
     String.fromCharCode(Number.parseInt(c, 16)),
   );
 
+/** Hasta donde se busca hacia atras el comienzo del registro. */
+const MAX_RETROCESO = 20000;
+
+/** Indice de la llave que cierra el objeto que abre en `inicio`, respetando cadenas. */
+const finDelObjeto = (texto: string, inicio: number): number => {
+  let profundidad = 0;
+  let enCadena = false;
+  for (let i = inicio; i < texto.length; i += 1) {
+    const c = texto[i];
+    if (enCadena) {
+      if (c === '\\') i += 1;
+      else if (c === '"') enCadena = false;
+      continue;
+    }
+    if (c === '"') enCadena = true;
+    else if (c === '{') profundidad += 1;
+    else if (c === '}') {
+      profundidad -= 1;
+      if (profundidad === 0) return i;
+    }
+  }
+  return -1;
+};
+
+/** Comienzo del objeto que envuelve a `indice`, mirando hacia atras. */
+const inicioDelObjeto = (texto: string, indice: number): number => {
+  let profundidad = 0;
+  const tope = Math.max(0, indice - MAX_RETROCESO);
+  for (let i = indice; i >= tope; i -= 1) {
+    const c = texto[i];
+    if (c === '}') profundidad += 1;
+    else if (c === '{') {
+      if (profundidad === 0) return i;
+      profundidad -= 1;
+    }
+  }
+  return -1;
+};
+
+/**
+ * El registro que describe ESTA publicacion, acotado a su objeto JSON.
+ *
+ * Facebook normaliza sus datos en registros sueltos y la pagina trae los de
+ * muchas publicaciones (22 en la que se verifico). El registro bueno es el que
+ * esta junto al id y trae el titulo: por eso se recorta el objeto entero, y no
+ * una ventana de caracteres, que mezclaba una publicacion con la siguiente.
+ *
+ * Devuelve cadena vacia si no se encuentra: no leer nada es mejor que leer otro
+ * anuncio.
+ */
+export const bloqueDeLaFicha = (texto: string, publicacionId: string): string => {
+  const marca = `"${publicacionId}"`;
+  for (let i = texto.indexOf(marca); i >= 0; i = texto.indexOf(marca, i + 1)) {
+    const registro = inicioDelObjeto(texto, i);
+    if (registro < 0) continue;
+    const fin = finDelObjeto(texto, registro);
+    if (fin < 0 || !texto.slice(registro, fin + 1).includes('"marketplace_listing_title"')) continue;
+
+    // El registro del titulo es diminuto: el precio, la descripcion, la categoria
+    // y el vendedor cuelgan del objeto de UN NIVEL ARRIBA. Verificado el
+    // 2026-09-21: ahi estan los cuatro y no entra ninguna publicacion vecina.
+    const padre = inicioDelObjeto(texto, registro - 1);
+    if (padre < 0) return texto.slice(registro, fin + 1);
+    const finDelPadre = finDelObjeto(texto, padre);
+    return finDelPadre < 0 ? texto.slice(registro, fin + 1) : texto.slice(padre, finDelPadre + 1);
+  }
+  return '';
+};
+
+/**
+ * El bloque del visor de fotos (`marketplace_product_details_page` → `target`),
+ * que es el unico que las trae y ya viene acotado a esta publicacion.
+ */
+export const bloqueDeLasFotos = (texto: string): string => {
+  const pdp = texto.indexOf('"marketplace_product_details_page"');
+  if (pdp < 0) return '';
+  const objetivo = texto.indexOf('"target":{', pdp);
+  if (objetivo < 0) return '';
+  const inicio = texto.indexOf('{', objetivo + '"target":'.length - 1);
+  const fin = finDelObjeto(texto, inicio);
+  return fin < 0 ? '' : texto.slice(inicio, fin + 1);
+};
+
 export const PATRONES = {
   /** Id del perfil del vendedor dentro de la ficha. */
   perfil: /marketplace\/profile\/(\d{10,17})/,
@@ -50,11 +140,25 @@ export const PATRONES = {
   promedio: /"five_star_ratings_average"\s*:\s*([\d.]+)/,
   cuantasCalificaciones:
     /"seller_buyer_combined"\s*:\s*\{[^}]*?"five_star_total_rating_count_by_role"\s*:\s*(\d+)/,
+  /** SIN VERIFICAR: el vendedor llega en null sin sesion iniciada. */
   nombre: /"name":"([^"]+)"\},"commerce_badges_info"/,
   nombreCorto: /"short_name":"([^"]+)"/,
-  categoria: /"name":"([^"]+)","seo_info":/,
-  /** El distintivo que Facebook da al vendedor, p. ej. "Calificacion alta". */
-  distintivo: /"commerce_badges_info"[\s\S]{0,400}?"text"\s*:\s*"([^"]{3,60})"/,
+  /** "marketplace_listing_category":{"slug":"antiques", ...}. */
+  categoria: /"marketplace_listing_category":\{[^}]*?"slug":"([^"]+)"/,
+  /** Titulo de la publicacion, ya dentro de su registro. */
+  titulo: /"marketplace_listing_title":"([^"]+)"/,
+  /**
+   * El distintivo del vendedor. Se exige que el arreglo traiga uno: cuando no
+   * tiene, Facebook manda `"badges":[]` y buscar un "text" cercano capturaba
+   * cualquier otra cosa.
+   */
+  distintivo: /"commerce_badges_info":\{[^[]*?"badges":\[\{[^\]]{0,400}?"text":"([^"]{3,60})"/,
+  /** Fotos de la publicacion. Son `ProductImage`, no `MarketplaceListingPhoto`. */
+  foto: /"__typename":"ProductImage"/g,
+  precio: /"listing_price":\{[^}]*?"amount":"([\d.]+)"/,
+  /** Puede venir en null, y entonces no hay descuento que calcular. */
+  precioTachado: /"strikethrough_price":(?:null|\{[^}]*?"amount":"([\d.]+)")/,
+  descripcion: /"redacted_description":\{"text":"((?:[^"\\]|\\.)*)"/,
   /** Una publicacion activa del vendedor: ni vendida ni dada de baja. */
   publicacionActiva:
     /"GroupCommerceProductItem","id":"(\d+)"(?:(?!"GroupCommerceProductItem").)*?"is_live":true(?:(?!"GroupCommerceProductItem").)*?"is_sold":false/gs,
@@ -98,9 +202,25 @@ export const distintivo = (texto: string): string | undefined => {
   return crudo === undefined ? undefined : desescapar(crudo).trim();
 };
 
-export const categoria = (texto: string): string => {
-  const crudo = capturar(texto, PATRONES.categoria);
+/** La categoria de la publicacion, tal como Facebook la nombra: "antiques". */
+export const categoria = (bloque: string): string => {
+  const crudo = capturar(bloque, PATRONES.categoria);
   return crudo === undefined ? '' : desescapar(crudo).trim();
+};
+
+/**
+ * Cuantas fotos trae la publicacion. Se cuentan sobre el bloque del visor: en el
+ * registro de la ficha no vienen.
+ */
+export const cuantasFotos = (texto: string): number =>
+  (bloqueDeLasFotos(texto).match(PATRONES.foto) ?? []).length;
+
+/** Descuento en porcentaje, solo si hay precio tachado mayor que el vigente. */
+export const descuento = (bloque: string): number | undefined => {
+  const ahora = numero(capturar(bloque, PATRONES.precio));
+  const antes = numero(capturar(bloque, PATRONES.precioTachado));
+  if (ahora === undefined || antes === undefined || antes <= 0 || antes <= ahora) return undefined;
+  return Math.round(((antes - ahora) / antes) * 10000) / 100;
 };
 
 /** Cuantas publicaciones activas distintas tiene el vendedor en la pagina. */

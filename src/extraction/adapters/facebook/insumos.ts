@@ -1,5 +1,6 @@
 import type { DatosDelVendedor, Insumos } from '../../../domain/insumos.js';
 import {
+  bloqueDeLaFicha,
   categoria,
   cuantasCalificaciones,
   distintivo,
@@ -59,13 +60,30 @@ export const datosDelPerfil = (texto: string): DatosDelPerfil => {
   };
 };
 
+/** Id de la publicacion segun la URL abierta. */
+const idDeLaFicha = (doc: Document): string =>
+  /\/marketplace\/item\/(\d{10,20})/.exec(doc.URL)?.[1] ?? '';
+
+/**
+ * El registro de ESTA publicacion. La pagina trae tambien las relacionadas, y
+ * leer suelto devolvia los datos de otro anuncio.
+ */
+const bloqueDeEstaFicha = (doc: Document, texto: string): string => {
+  const id = idDeLaFicha(doc);
+  return id === '' ? '' : bloqueDeLaFicha(texto, id);
+};
+
 export const insumosDe = (doc: Document): Insumos => {
   const texto = textoEmbebido(doc);
   return {
+    // El vendedor se lee del texto entero: en el perfil no hay publicacion que acotar.
     vendedor: datosDelVendedor(texto),
     resenas: resenasDelVendedor(texto),
-    categoria: categoria(texto),
+    categoria: categoria(bloqueDeEstaFicha(doc, texto)),
   };
 };
 
-export const categoriaGruesaDe = (doc: Document): string => categoria(textoEmbebido(doc));
+export const categoriaGruesaDe = (doc: Document): string => {
+  const texto = textoEmbebido(doc);
+  return categoria(bloqueDeEstaFicha(doc, texto));
+};
