@@ -263,3 +263,21 @@ describe('Facebook: tarjetas del listado', () => {
     }
   });
 });
+
+/**
+ * Facebook manda 0 en el promedio cuando NADIE ha calificado al vendedor. Si se
+ * manda tal cual, el analizador de reputacion lo lee como "0 sobre 5, por debajo
+ * de lo aceptable" y el veredicto sale riesgo alto sin una sola mala nota.
+ */
+describe('Facebook: un promedio de cero no es una calificacion', () => {
+  it('se omite el promedio cuando vale cero', () => {
+    const sinNotas = `{"data":{"seller":{"id":"1","short_name":"Ana"},` +
+      `"five_star_ratings_average":0,` +
+      `"seller_buyer_combined":{"five_star_total_rating_count_by_role":0}}}`;
+    const doc = cargar(sinNotas, '', 'https://www.facebook.com/marketplace/profile/1/');
+    const vendedor = fb.insumos(doc).vendedor;
+
+    expect(vendedor).not.toHaveProperty('ratingAverage');
+    expect(vendedor?.ratingCount).toBe(0);
+  });
+});

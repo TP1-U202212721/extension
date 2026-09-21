@@ -190,9 +190,17 @@ export const idDelPerfil = (texto: string): string | undefined =>
 export const seguidores = (texto: string): number | undefined =>
   numero(capturar(texto, PATRONES.seguidores));
 
+/**
+ * Promedio del vendedor, de 0 a 5.
+ *
+ * Un 0 NO es una nota psima: Facebook manda 0 cuando el vendedor no tiene
+ * ninguna calificacion. Mandarlo como puntuacion hacia que el analizador de
+ * reputacion lo leyera como "0.0 sobre 5, por debajo de lo aceptable" y empujara
+ * el veredicto a riesgo alto sin que nadie lo hubiera calificado mal.
+ */
 export const promedio = (texto: string): number | undefined => {
   const n = numero(capturar(texto, PATRONES.promedio));
-  return n !== undefined && n >= 0 && n <= 5 ? n : undefined;
+  return n !== undefined && n > 0 && n <= 5 ? n : undefined;
 };
 
 export const cuantasCalificaciones = (texto: string): number | undefined =>
