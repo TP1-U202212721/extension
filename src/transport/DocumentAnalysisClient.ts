@@ -10,6 +10,7 @@ import {
   type ProteccionDePago,
 } from '../domain/features.js';
 import type { DesenlaceLlamada } from './RiskEngineClient.js';
+import type { VeredictoDelModelo } from '../domain/policy/modeloDePlataforma.js';
 
 /** Limite del backend: 8 MB en bytes UTF-8, no en caracteres. */
 export const MAX_BYTES = 8 * 1024 * 1024;
@@ -33,6 +34,11 @@ export interface DetalleDocumento {
 export interface ResultadoDocumento {
   readonly features: FeatureSet;
   readonly detalle: DetalleDocumento | null;
+  /**
+   * Veredicto del modelo propio de la plataforma, si lo hay. Hoy solo Facebook
+   * Marketplace, y solo cuando el comprador pidio revisar al vendedor.
+   */
+  readonly modelo?: VeredictoDelModelo;
   /** Como termino la llamada. Lo consume la analitica de uso, no la presentacion. */
   readonly desenlace: DesenlaceLlamada;
 }
@@ -171,7 +177,13 @@ export const analizarDocumento = async (
       };
     }
 
-    return { features: mapear(item), detalle: detalleDe(item), desenlace: 'correcto' };
+      const modelo = modeloDe(item);
+    return {
+      features: mapear(item),
+      detalle: detalleDe(item),
+      ...(modelo !== null && { modelo }),
+      desenlace: 'correcto',
+    };
   } catch {
     // Timeout o red caida. Nunca favorable: todo queda sin resolver.
     return {
@@ -182,6 +194,14 @@ export const analizarDocumento = async (
   } finally {
     clearTimeout(reloj);
   }
+};
+
+/** El veredicto del modelo de la plataforma, si la respuesta lo trae. */
+const modeloDe = (item: Sobre): VeredictoDelModelo | null => {
+  const modelo = item.obj('riskModel');
+  const clase = modelo.num('result');
+  if (clase === null) return null;
+  return { clase, rellenadas: modelo.cadenas('filledInputs') };
 };
 
 const estadosDe = (item: Sobre): ReadonlyMap<string, Estado> => {

@@ -2,6 +2,7 @@ import { indeterminado, type FeatureSet } from '../domain/features.js';
 import type { DecisionPolicy } from '../domain/policy/DecisionPolicy.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
 import { analizarDocumento } from './DocumentAnalysisClient.js';
+import { veredictoDelModelo } from '../domain/policy/modeloDePlataforma.js';
 import { consultarVeracidadDeDominio } from './DomainVeracityClient.js';
 import { consultarReputacion } from './SellerReputationClient.js';
 import { consultarAutenticidad } from './ReviewAnalysisClient.js';
@@ -100,7 +101,14 @@ export class BackendRiskEngineClient implements RiskEngineClient {
       resenas: paso(resenas),
     };
 
-    return { verdict: this.policy.decidir(features), features, detalles, traza };
+    // En las plataformas con modelo propio (Facebook Marketplace) el nivel de
+    // riesgo lo decide ESE modelo, no la politica de aqui. El backend solo lo
+    // consulta cuando el comprador pidio revisar al vendedor y se pudo leer su
+    // perfil; si no, no viene nada y decide la politica, como siempre.
+    const delModelo =
+      doc?.valor.modelo === undefined ? null : veredictoDelModelo(doc.valor.modelo, features);
+
+    return { verdict: delModelo ?? this.policy.decidir(features), features, detalles, traza };
   }
 }
 
