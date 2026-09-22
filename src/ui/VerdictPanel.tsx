@@ -387,9 +387,10 @@ function ListaInputsModelo({ entradas }: { readonly entradas?: EntradasModelo | 
       </h2>
       <ul className="space-y-2">
         {FACEBOOK_MODEL_INPUTS.map(({ key, label, fmt }) => {
-          const valor = entradas?.[key] ?? 0;
+          const valor = entradas?.[key] ?? null;
+          // null es "no se pudo leer"; 0 es un dato. No se presentan igual.
+          const sinDatos = valor === null;
           const esCero = valor === 0;
-          const sinDatos = entradas === undefined;
           return (
             <li key={key} className="flex items-start gap-2 text-sm">
               <CircleHelp
@@ -400,7 +401,7 @@ function ListaInputsModelo({ entradas }: { readonly entradas?: EntradasModelo | 
               <span>
                 <span className="font-semibold">{label}</span>
                 <span className="block text-xs text-slate-500">
-                  {sinDatos ? 'Sin datos del perfil' : typeof valor === 'number' ? fmt(valor) : '—'}
+                  {sinDatos ? 'No se pudo leer' : fmt(valor)}
                 </span>
               </span>
             </li>

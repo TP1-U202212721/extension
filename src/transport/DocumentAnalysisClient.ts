@@ -32,15 +32,22 @@ export interface DetalleDocumento {
 }
 
 /** Inputs del modelo de Facebook Marketplace, si el backend los devolvió. */
+/**
+ * Inputs del modelo de Facebook Marketplace, si el backend los devolvio.
+ *
+ * `null` significa que NO se pudo leer, y es distinto de 0: el modelo recibe un
+ * 0 porque su contrato no admite ausencias, pero el panel tiene que decir que no
+ * se midio en vez de mostrar "0 dias" o "Sin imagenes" como si fueran datos.
+ */
 export interface EntradasModelo {
-  readonly discount: number;
-  readonly ratingAvg: number;
-  readonly ratingCount: number;
-  readonly shopFollowerCount: number;
-  readonly shopItemCount: number;
-  readonly isShopeeVerified: number;
-  readonly sellerSeniorityInDays: number;
-  readonly imagesCount: number;
+  readonly discount: number | null;
+  readonly ratingAvg: number | null;
+  readonly ratingCount: number | null;
+  readonly shopFollowerCount: number | null;
+  readonly shopItemCount: number | null;
+  readonly isShopeeVerified: number | null;
+  readonly sellerSeniorityInDays: number | null;
+  readonly imagesCount: number | null;
   readonly cobertura_evidencia: number;
 }
 
@@ -233,14 +240,14 @@ const entradasModeloDe = (item: Sobre): EntradasModelo | undefined => {
   // siempre con ella. Asi se distingue "no vino" de "vino todo en cero".
   if (mi.num('coverage') === null) return undefined;
   return {
-    discount: mi.numOr('discount', 0),
-    ratingAvg: mi.numOr('ratingAverage', 0),
-    ratingCount: mi.numOr('ratingCount', 0),
-    shopFollowerCount: mi.numOr('followers', 0),
-    shopItemCount: mi.numOr('activeListings', 0),
+    discount: mi.num('discount'),
+    ratingAvg: mi.num('ratingAverage'),
+    ratingCount: mi.num('ratingCount'),
+    shopFollowerCount: mi.num('followers'),
+    shopItemCount: mi.num('activeListings'),
     isShopeeVerified: mi.bool('hasBadge') ? 1 : 0,
-    sellerSeniorityInDays: mi.numOr('sellerSeniorityInDays', 0),
-    imagesCount: mi.numOr('imagesCount', 0),
+    sellerSeniorityInDays: mi.num('sellerSeniorityInDays'),
+    imagesCount: mi.num('imagesCount'),
     cobertura_evidencia: mi.numOr('coverage', 0),
   };
 };

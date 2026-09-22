@@ -11,6 +11,7 @@ import {
   bloqueDeLaFicha,
   bloqueDeLasFotos,
   fichaDesdeElDom,
+  fotosDesdeElDom,
   idDelPerfil,
   recorteDelPerfil,
   textoEmbebido,
@@ -156,11 +157,15 @@ export class FacebookAdapter implements MarketplaceAdapter {
     const completa = incrustada.includes('"redacted_description"');
     const delDom = completa ? '' : fichaDesdeElDom(doc, id);
 
+    // Las fotos tambien: el bloque del visor que trae la pagina puede ser de la
+    // ficha anterior, asi que cuando la del DOM manda, sus fotos tambien.
+    const fotos = completa ? bloqueDeLasFotos(texto) : fotosDesdeElDom(doc, id);
+
     const partes = [
       // Primero la del DOM: el backend se queda con la primera que encuentre.
       delDom,
       incrustada,
-      bloqueDeLasFotos(texto),
+      fotos,
       recorteDelPerfil(texto),
     ];
 

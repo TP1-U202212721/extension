@@ -392,6 +392,23 @@ const enJson = (texto: string): string =>
   texto.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\n\r\t]/g, ' ');
 
 /**
+ * Cuantas fotos muestra la publicacion, contadas en el DOM.
+ *
+ * Facebook etiqueta cada foto del anuncio con `alt="Foto del producto de ..."`,
+ * y la principal se repite como miniatura: se cuentan imagenes DISTINTAS. Las de
+ * los anuncios relacionados llevan su propio titulo en el `alt` y no entran.
+ */
+export const cuantasFotosDelDom = (doc: Document): number => {
+  const fuentes = new Set<string>();
+  for (const img of doc.querySelectorAll('img')) {
+    if (!/^(Foto del producto|Product photo|Photo of)/i.test(img.getAttribute('alt') ?? '')) continue;
+    const src = (img.getAttribute('src') ?? '').split('?')[0];
+    if (src !== undefined && src !== '') fuentes.add(src);
+  }
+  return fuentes.size;
+};
+
+/**
  * Arma, desde el DOM, un registro con las claves que lee el backend. Cadena
  * vacia si la pagina no muestra ni titulo ni descripcion.
  */
@@ -413,4 +430,16 @@ export const fichaDesdeElDom = (doc: Document, publicacionId: string): string =>
     // El texto del alta va tal cual: el backend lo lee con su propio patron.
     `,"perfil":"${enJson(`${vendedor} ${alta}`.trim())}"}`
   );
+};
+
+/**
+ * El bloque del visor con tantas fotos como muestre el DOM, para cuando la
+ * navegacion interna no dejo el de Facebook en la pagina.
+ */
+export const fotosDesdeElDom = (doc: Document, publicacionId: string): string => {
+  const cuantas = cuantasFotosDelDom(doc);
+  if (cuantas === 0) return '';
+
+  const fotos = Array.from({ length: cuantas }, () => '{"__typename":"ProductImage"}').join(',');
+  return `"marketplace_product_details_page":{"target":{"id":"${publicacionId}","listing_photos":[${fotos}]}}`;
 };
