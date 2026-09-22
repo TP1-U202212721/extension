@@ -255,6 +255,7 @@ const MARCAS_DEL_PERFIL: readonly string[] = [
   '"MarketplaceC2CSellerRating"',
   '"GroupCommerceProductItem"',
   '"short_name"',
+  '"join_time"',
 ];
 
 /** Cuanto texto se conserva alrededor de cada marca del perfil. */

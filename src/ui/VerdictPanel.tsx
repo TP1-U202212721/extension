@@ -56,8 +56,15 @@ export function VerdictPanel({
   const clave = verdict.kind === 'riesgo' ? verdict.nivel : 'evidencia-insuficiente';
   const Icono = iconoDe(clave);
 
-  const resueltas = FEATURE_IDS.filter((id) => esConocida(features[id]));
-  const pendientes = FEATURE_IDS.filter((id) => !esConocida(features[id]));
+  const esFacebook = plataforma === 'Facebook Marketplace';
+
+  const featuresVisibles = FEATURE_IDS.filter((id) => {
+    if (esFacebook && (id === 'veracidadDeDominio' || id === 'autenticidadDeResenas')) return false;
+    return true;
+  });
+
+  const resueltas = featuresVisibles.filter((id) => esConocida(features[id]));
+  const pendientes = featuresVisibles.filter((id) => !esConocida(features[id]));
 
   return (
     <section className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-lg font-sans text-slate-900">
@@ -107,12 +114,13 @@ export function VerdictPanel({
 
       {vendedor != null && <AnalisisDelVendedor d={vendedor} onAbrir={onDetalleAbierto} />}
 
-      <ListaCaracteristicas titulo="Se verifico" ids={resueltas} features={features} verificado />
+      <ListaCaracteristicas titulo="Se verifico" ids={resueltas} features={features} verificado plataforma={plataforma} />
       <ListaCaracteristicas
         titulo="No se pudo verificar"
         ids={pendientes}
         features={features}
         verificado={false}
+        plataforma={plataforma}
       />
 
       {encuesta}
@@ -129,14 +137,28 @@ function ListaCaracteristicas({
   ids,
   features,
   verificado,
+  plataforma,
 }: {
   readonly titulo: string;
   readonly ids: readonly FeatureId[];
   readonly features: FeatureSet;
   readonly verificado: boolean;
+  readonly plataforma: string;
 }) {
   if (ids.length === 0) return null;
   const Icono = verificado ? CircleCheck : CircleHelp;
+  const esFacebook = plataforma === 'Facebook Marketplace';
+
+  const etiqueta = (id: FeatureId): string => {
+    if (!esFacebook) return FEATURE_META[id].etiqueta;
+    switch (id) {
+      case 'puntuacionDelProducto': return 'Calificación del vendedor';
+      case 'presenciaDeResenas': return 'Opiniones del vendedor';
+      case 'politicasDeGarantia': return 'Políticas de la publicación';
+      case 'volumenDeVentas': return 'Ventas del vendedor';
+      default: return FEATURE_META[id].etiqueta;
+    }
+  };
 
   return (
     <div className="mb-3">
@@ -155,7 +177,7 @@ function ListaCaracteristicas({
                 className={`mt-0.5 shrink-0 ${verificado ? 'text-emerald-600' : 'text-slate-400'}`}
               />
               <span>
-                <span className="font-semibold">{FEATURE_META[id].etiqueta}</span>
+                <span className="font-semibold">{etiqueta(id)}</span>
                 <span className="block text-xs text-slate-500">{detalle}</span>
               </span>
             </li>

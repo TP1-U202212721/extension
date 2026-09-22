@@ -52,6 +52,8 @@ export class BackendRiskEngineClient implements RiskEngineClient {
     const token = await this.tokens.obtener();
     if (token === null) throw new SesionRequeridaError();
 
+    const esFacebook = solicitud.url.includes('facebook.com/marketplace');
+
     const datosVendedor: DatosDelVendedor | null =
       solicitud.insumos.vendedor ?? { sellerName: '', platform: 'Mercado Libre' };
 
@@ -61,13 +63,13 @@ export class BackendRiskEngineClient implements RiskEngineClient {
         () => analizarDocumento(solicitud.url, solicitud.html, token, solicitud.htmlVendedor),
       ),
       cronometrar(
-        this.analizadores.dominio,
+        this.analizadores.dominio && !esFacebook,
         () => consultarVeracidadDeDominio(solicitud.url, token),
       ),
       cronometrar(this.analizadores.vendedor, () =>
         consultarReputacion(datosVendedor, this.tokens),
       ),
-      cronometrar(this.analizadores.resenas, () =>
+      cronometrar(this.analizadores.resenas && !esFacebook, () =>
         consultarAutenticidad(
           solicitud.insumos.resenas,
           solicitud.insumos.categoria,
