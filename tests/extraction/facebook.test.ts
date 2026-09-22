@@ -281,3 +281,53 @@ describe('Facebook: un promedio de cero no es una calificacion', () => {
     expect(vendedor?.ratingCount).toBe(0);
   });
 });
+
+/**
+ * Facebook navega entre publicaciones SIN recargar, y la ficha abierta asi no
+ * esta en los scripts: ahi queda el registro corto de "relacionados", con titulo
+ * y precio pero sin descripcion. Verificado el 2026-09-22 con sesion iniciada, y
+ * es lo que hacia salir el analisis con 0% de caracteristicas.
+ */
+describe('Facebook: la ficha se lee del DOM cuando no esta en los scripts', () => {
+  const RELACIONADA =
+    `{"require":[["RelayPrefetchedStreamCache","next",[],["x",{"__bbox":{"result":{"data":{` +
+    `"listings":[{"story":{"__typename":"GroupCommerceProductItem","id":"${ID}",` +
+    `"marketplace_listing_title":"Arreglos florales"},` +
+    `"listing_price":{"amount":"120.00"},"is_live":true}]}}}}]]]}`;
+
+  const conDom = (): Document => {
+    const doc = cargar(RELACIONADA);
+    doc.title = '(20+) Marketplace - Arreglos florales | Facebook';
+    const bloque = doc.createElement('div');
+    bloque.innerHTML =
+      '<div><div>Detalles</div><div>Arreglos a pedido, acepto yape. Sin garantia.</div></div>' +
+      '<div><span>Informacion del vendedor</span><span>Se unio a Facebook en 2014</span></div>' +
+      '<span>S/ 120</span>';
+    doc.body.append(bloque);
+    // happy-dom no calcula cajas: todo lo que se agrega aqui se considera visible.
+    for (const el of doc.body.querySelectorAll('div, span')) {
+      Object.defineProperty(el, 'getBoundingClientRect', {
+        value: () => ({ width: 100, height: 20 }),
+        configurable: true,
+      });
+    }
+    return doc;
+  };
+
+  it('el documento que se manda trae titulo, descripcion y precio', () => {
+    const enviado = fb.documentoParaAnalizar(conDom());
+
+    expect(enviado).toContain('"marketplace_listing_title":"Arreglos florales"');
+    expect(enviado).toContain('acepto yape');
+    expect(enviado).toContain('"listing_price":{"amount":"120"}');
+    expect(enviado).toContain('Se unio a Facebook en 2014');
+  });
+
+  /** Con la ficha completa incrustada no hace falta mirar el DOM. */
+  it('cuando el estado si trae la ficha, se usa esa', () => {
+    const enviado = fb.documentoParaAnalizar(cargar(estado()));
+
+    expect(enviado).toContain('Carcochitas');
+    expect(enviado).toContain('"redacted_description"');
+  });
+});

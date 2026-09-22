@@ -10,6 +10,7 @@ import { categoriaGruesaDe, insumosDe } from './insumos.js';
 import {
   bloqueDeLaFicha,
   bloqueDeLasFotos,
+  fichaDesdeElDom,
   idDelPerfil,
   recorteDelPerfil,
   textoEmbebido,
@@ -143,13 +144,32 @@ export class FacebookAdapter implements MarketplaceAdapter {
     const texto = textoEmbebido(doc);
     const id = ID.exec(doc.URL)?.[1];
 
-    const partes =
-      id === undefined
-        ? [recorteDelPerfil(texto)]
-        : [bloqueDeLaFicha(texto, id), bloqueDeLasFotos(texto), recorteDelPerfil(texto)];
+    if (id === undefined) {
+      return this.documento(doc, [recorteDelPerfil(texto)]);
+    }
 
+    // Facebook navega entre publicaciones sin recargar, y la ficha abierta asi NO
+    // esta en los scripts: ahi queda solo el registro corto de "relacionados",
+    // con titulo y precio pero sin descripcion. Cuando el incrustado no trae la
+    // ficha completa, se lee del DOM, que si la muestra.
+    const incrustada = bloqueDeLaFicha(texto, id);
+    const completa = incrustada.includes('"redacted_description"');
+    const delDom = completa ? '' : fichaDesdeElDom(doc, id);
+
+    const partes = [
+      // Primero la del DOM: el backend se queda con la primera que encuentre.
+      delDom,
+      incrustada,
+      bloqueDeLasFotos(texto),
+      recorteDelPerfil(texto),
+    ];
+
+    return this.documento(doc, partes);
+  }
+
+  /** Envuelve los trozos en el documento minimo que el backend sabe leer. */
+  private documento(doc: Document, partes: readonly string[]): string {
     const util = partes.filter((p) => p !== '').join('\n');
-    // El `<script>` es lo que el backend sabe leer; el titulo ayuda a diagnosticar.
     return (
       `<!DOCTYPE html><html><head><title>${doc.title.replace(/</g, '')}</title></head>` +
       `<body><script type="application/json">${util.replace(/<\//g, '<\\/')}</script></body></html>`

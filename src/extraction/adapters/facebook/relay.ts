@@ -331,3 +331,86 @@ export const resenasDelVendedor = (texto: string): readonly ResenaDelVendedor[] 
   }
   return salida;
 };
+
+/**
+ * La ficha leida del DOM, con la forma del estado que el backend sabe leer.
+ *
+ * Hace falta porque Facebook navega entre publicaciones SIN recargar: la ficha
+ * abierta despues de un clic NO esta en los `<script>` de la pagina. Ahi solo
+ * queda el registro corto de "relacionados" (titulo y precio, sin descripcion),
+ * y por eso el analisis salia con 0% de caracteristicas.
+ *
+ * Verificado sobre publicaciones reales de facebook.com/marketplace con sesion
+ * iniciada el 2026-09-22.
+ */
+
+/** "(20+) Marketplace - Arreglos florales | Facebook" -> "Arreglos florales". */
+const tituloDelDocumento = (doc: Document): string =>
+  doc.title
+    .replace(/^\(\d+\+?\)\s*/, '')
+    .replace(/^Marketplace\s*[-–]\s*/i, '')
+    .replace(/\s*\|\s*Facebook\s*$/i, '')
+    .trim();
+
+const visible = (el: Element): boolean => {
+  const caja = el.getBoundingClientRect();
+  return caja.width > 0 && caja.height > 0;
+};
+
+/** El texto de la seccion cuyo encabezado coincide, sin el encabezado. */
+const seccion = (doc: Document, encabezado: RegExp): string => {
+  for (const el of doc.querySelectorAll('div, span, h2, h3')) {
+    if (el.children.length !== 0 || !encabezado.test(el.textContent.trim())) continue;
+    if (!visible(el)) continue;
+
+    const bloque = el.parentElement?.parentElement;
+    if (bloque === null || bloque === undefined) continue;
+
+    const texto = bloque.textContent.replace(/\s+/g, ' ').replace(encabezado, '').trim();
+    if (texto.length > 3) return texto.slice(0, 2000);
+  }
+  return '';
+};
+
+/** "Se unio a Facebook en 2014" / "Joined Facebook in 2014". */
+const ALTA_EN_FACEBOOK = /(?:Se uni(?:ó|o) a Facebook en|Joined Facebook in)\s*(\d{4})/;
+
+/** Primer precio visible de la pagina: "S/ 30.000", "US$35". */
+const PRECIO_VISIBLE = /^(?:S\/|US\$|PEN|\$)\s?([\d.,]+)/;
+
+const precioDelDom = (doc: Document): string => {
+  for (const el of doc.querySelectorAll('span')) {
+    if (el.children.length !== 0 || !visible(el)) continue;
+    const m = PRECIO_VISIBLE.exec(el.textContent.trim());
+    if (m?.[1] !== undefined) return m[1].replace(/\./g, '').replace(',', '.');
+  }
+  return '';
+};
+
+/** Escapa lo que rompe el JSON que se arma a mano. */
+const enJson = (texto: string): string =>
+  texto.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\n\r\t]/g, ' ');
+
+/**
+ * Arma, desde el DOM, un registro con las claves que lee el backend. Cadena
+ * vacia si la pagina no muestra ni titulo ni descripcion.
+ */
+export const fichaDesdeElDom = (doc: Document, publicacionId: string): string => {
+  const titulo = tituloDelDocumento(doc);
+  const descripcion = seccion(doc, /^(Detalles|Details)$/);
+  if (titulo === '' && descripcion === '') return '';
+
+  const precio = precioDelDom(doc);
+  const alta = ALTA_EN_FACEBOOK.exec(doc.body.textContent)?.[0] ?? '';
+  const vendedor = seccion(doc, /^(Informaci(?:ó|o)n del vendedor|Seller information)$/);
+
+  return (
+    `{"id":"${publicacionId}"` +
+    `,"marketplace_listing_title":"${enJson(titulo)}"` +
+    `,"redacted_description":{"text":"${enJson(descripcion)}"}` +
+    (precio === '' ? '' : `,"listing_price":{"amount":"${precio}"}`) +
+    `,"strikethrough_price":null` +
+    // El texto del alta va tal cual: el backend lo lee con su propio patron.
+    `,"perfil":"${enJson(`${vendedor} ${alta}`.trim())}"}`
+  );
+};
