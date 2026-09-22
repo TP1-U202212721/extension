@@ -18,6 +18,7 @@ import {
   type Traza,
 } from './RiskEngineClient.js';
 import type { DatosDelVendedor } from '../domain/insumos.js';
+import { adapterPara } from '../extraction/registry.js';
 
 /** Que analizadores del backend se consultan. */
 export interface Analizadores {
@@ -125,7 +126,12 @@ export class BackendRiskEngineClient implements RiskEngineClient {
         : veredictoDelModelo(doc.valor.modelo, features, excluidas);
 
     return {
-      verdict: abstencion ?? delModelo ?? this.policy.decidir(features),
+      // Si un adaptador reconoce la URL, la compra ocurre dentro de un marketplace
+      // y la politica deja de puntuar el dominio y la pasarela (ver ContextoDelVeredicto).
+      verdict:
+        abstencion ??
+        delModelo ??
+        this.policy.decidir(features, { enMarketplace: adapterPara(solicitud.url) !== null }),
       features,
       detalles,
       ...(doc?.valor.entradasModelo !== undefined && { entradasModelo: doc.valor.entradasModelo }),

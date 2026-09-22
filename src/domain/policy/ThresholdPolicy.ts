@@ -9,7 +9,7 @@ import {
   type Dimension,
   type FeatureSet,
 } from '../features.js';
-import type { DecisionPolicy } from './DecisionPolicy.js';
+import type { ContextoDelVeredicto, DecisionPolicy } from './DecisionPolicy.js';
 import type { NivelDeRiesgo, Verdict } from '../verdict.js';
 
 const TODAS_LAS_DIMENSIONES: readonly Dimension[] = [
@@ -62,14 +62,14 @@ export const evidenciaInsuficiente = (features: FeatureSet): Verdict | null => {
 export class ThresholdPolicy implements DecisionPolicy {
   readonly id = 'threshold-r4-una-por-dimension@en-revision';
 
-  decidir(features: FeatureSet): Verdict {
+  decidir(features: FeatureSet, contexto?: ContextoDelVeredicto): Verdict {
     const abstencion = evidenciaInsuficiente(features);
     if (abstencion !== null) return abstencion;
 
     const conocidas = resueltas(features);
     const faltantes = sinResolver(features);
 
-    const { nivel, puntaje } = this.#puntuar(features);
+    const { nivel, puntaje } = this.#puntuar(features, contexto?.enMarketplace === true);
 
     return {
       kind: 'riesgo',
@@ -90,7 +90,10 @@ export class ThresholdPolicy implements DecisionPolicy {
    * el puntaje despues, fuera de la politica, seria tener dos versiones de la
    * misma cifra y que una pudiera contradecir a la otra.
    */
-  #puntuar(f: FeatureSet): { readonly nivel: NivelDeRiesgo; readonly puntaje: number } {
+  #puntuar(
+    f: FeatureSet,
+    enMarketplace: boolean,
+  ): { readonly nivel: NivelDeRiesgo; readonly puntaje: number } {
     let puntos = 0;
     let consideradas = 0;
 
@@ -99,10 +102,22 @@ export class ThresholdPolicy implements DecisionPolicy {
       if (ok) puntos += 1;
     };
 
-    if (estaResuelta(f.proteccionDePago)) sumar(f.proteccionDePago.valor === 'declarada');
-    // 4 y 5 son "probablemente legitimo" y "legitimo". El 3 del backend es
-    // "sin evidencia suficiente": es un valor conocido, pero no acredita nada.
-    if (estaResuelta(f.veracidadDeDominio)) sumar(f.veracidadDeDominio.valor >= 4);
+    // El dominio y la pasarela NO se puntuan dentro de un marketplace conocido.
+    //
+    // Ahi son constantes de la plataforma: amazon.com siempre tiene TLS y eBay
+    // siempre ofrece proteccion al comprador, venda quien venda. Contarlas a
+    // favor regalaba dos puntos en cada analisis y ahogaba a las que si hablan
+    // del vendedor: un vendedor con reportes en contra, sin resenas y con cuatro
+    // ventas se quedaba en 3 buenas de 7 (0.43) y salia "moderado", a 0.03 del
+    // umbral, sostenido por señales que no se habia ganado. Siguen leyendose y
+    // siguen contando para exigir que cada dimension aporte algo: lo que cambia
+    // es que ya no acreditan a este vendedor.
+    if (!enMarketplace) {
+      if (estaResuelta(f.proteccionDePago)) sumar(f.proteccionDePago.valor === 'declarada');
+      // 4 y 5 son "probablemente legitimo" y "legitimo". El 3 del backend es
+      // "sin evidencia suficiente": es un valor conocido, pero no acredita nada.
+      if (estaResuelta(f.veracidadDeDominio)) sumar(f.veracidadDeDominio.valor >= 4);
+    }
     // Las tres caracteristicas de backend comparten forma de escala ordinal de
     // cinco niveles, con el 3 reservado a "no se sabe". Por eso las tres tienen
     // el mismo corte: solo 4 y 5 acreditan algo.

@@ -113,3 +113,46 @@ describe('ThresholdPolicy · niveles', () => {
     }
   });
 });
+
+/**
+ * Dentro de un marketplace, el dominio y la pasarela son constantes de la
+ * plataforma y no acreditan a ESTE vendedor. El caso es real: AliExpress,
+ * publicacion 1005012763670050, medida el 2026-09-22.
+ */
+describe('ThresholdPolicy · dentro de un marketplace', () => {
+  /** Vendedor con reportes en contra, sin resenas y con cuatro ventas. */
+  const vendedorMalo = (): FeatureSet => ({
+    ...todoIndeterminado(),
+    proteccionDePago: conocido('declarada', 'compra protegida de la plataforma'),
+    veracidadDeDominio: conocido(5, 'aliexpress.com es legitimo'),
+    politicasDeGarantia: conocido(2, 'la ficha declara garantia'),
+    reputacionDelVendedor: conocido(1, 'compradores anteriores reportan problemas'),
+    puntuacionDelProducto: conocido(1, 'promedio de 1 sobre 5'),
+    presenciaDeResenas: conocido(false, 'la publicacion no tiene resenas'),
+    volumenDeVentas: conocido(4, 'aproximadamente 4 ventas'),
+  });
+
+  it('un vendedor en rojo da riesgo alto, sin los puntos que regala la plataforma', () => {
+    const v = policy.decidir(vendedorMalo(), { enMarketplace: true });
+
+    expect(v).toMatchObject({ kind: 'riesgo', nivel: 'alto' });
+  });
+
+  it('fuera del marketplace los mismos datos se quedan en moderado', () => {
+    // En una tienda con dominio propio, que el dominio sea legitimo y declare
+    // pasarela SI es evidencia, y por eso sostiene el veredicto.
+    const v = policy.decidir(vendedorMalo(), { enMarketplace: false });
+
+    expect(v).toMatchObject({ kind: 'riesgo', nivel: 'moderado' });
+  });
+
+  it('una publicacion sana del mismo marketplace sigue siendo riesgo bajo', () => {
+    const v = policy.decidir(completo(), { enMarketplace: true });
+
+    expect(v).toMatchObject({ kind: 'riesgo', nivel: 'bajo' });
+  });
+
+  it('sin contexto se comporta como antes, puntuando las ocho', () => {
+    expect(policy.decidir(vendedorMalo())).toMatchObject({ nivel: 'moderado' });
+  });
+});
