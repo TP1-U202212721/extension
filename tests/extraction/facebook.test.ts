@@ -414,4 +414,17 @@ describe('Facebook: calificaciones privadas', () => {
 
     expect(fb.insumos(doc).vendedor).toMatchObject({ ratingAverage: 5, ratingCount: 3 });
   });
+
+  /** Al reves: hay vendedores sin bloque combinado, o con el combinado en cero. */
+  it('se queda con el bloque del vendedor cuando el combinado no trae nada', () => {
+    const soloVendedor =
+      '{"data":{"seller":{"id":"1","short_name":"Ana"},' +
+      '"seller_stats":{"five_star_ratings_average":4.2,' +
+      '"five_star_total_rating_count_by_role":11},' +
+      '"seller_buyer_combined":{"five_star_ratings_average":0,' +
+      '"five_star_total_rating_count_by_role":0}}}';
+    const doc = cargar(soloVendedor, '', 'https://www.facebook.com/marketplace/profile/1/');
+
+    expect(fb.insumos(doc).vendedor).toMatchObject({ ratingAverage: 4.2, ratingCount: 11 });
+  });
 });

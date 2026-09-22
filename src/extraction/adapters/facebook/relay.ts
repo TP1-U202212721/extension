@@ -217,17 +217,27 @@ export const idDelPerfil = (texto: string): string | undefined =>
 export const seguidores = (texto: string): number | undefined =>
   numero(capturar(texto, PATRONES.seguidores));
 
+/** Un bloque sirve cuando trae alguna calificacion; en cero no dice nada. */
+const traeCalificaciones = (bloque: string): boolean =>
+  (numero(capturar(bloque, PATRONES.cuantasCalificaciones)) ?? 0) > 0 ||
+  (numero(capturar(bloque, PATRONES.promedio)) ?? 0) > 0;
+
 /**
  * El bloque del que se leen promedio y cantidad, siempre el mismo para los dos.
  *
- * El combinado manda: cuando el vendedor tiene sus calificaciones en privado,
- * `seller_stats` llega en cero y contradice al combinado. Leer cada numero por
- * separado dejaba "3 calificaciones" con "sin promedio".
+ * Se aceptan los dos y gana el que traiga datos: hay vendedores sin bloque
+ * combinado, y hay vendedores con las calificaciones en privado, donde
+ * `seller_stats` llega en cero y solo el combinado trae las suyas. Leer cada
+ * numero por su cuenta dejaba "3 calificaciones" con "sin promedio".
  */
-const bloqueDeCalificaciones = (texto: string): string =>
-  PATRONES.calificacionesCombinadas.exec(texto)?.[0] ??
-  PATRONES.calificacionesDelVendedor.exec(texto)?.[0] ??
-  texto;
+const bloqueDeCalificaciones = (texto: string): string => {
+  const bloques = [
+    PATRONES.calificacionesCombinadas.exec(texto)?.[0],
+    PATRONES.calificacionesDelVendedor.exec(texto)?.[0],
+  ].filter((bloque): bloque is string => bloque !== undefined);
+
+  return bloques.find(traeCalificaciones) ?? bloques[0] ?? texto;
+};
 
 /**
  * Promedio del vendedor, de 0 a 5.
