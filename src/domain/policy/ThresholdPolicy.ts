@@ -22,6 +22,36 @@ const TODAS_LAS_DIMENSIONES: readonly Dimension[] = [
 const R_MINIMO = 4;
 
 /**
+ * Compuerta de abstencion: devuelve `evidencia-insuficiente` si hay menos de
+ * R_MINIMO caracteristicas resueltas o si alguna dimension no aporta ninguna.
+ * Devuelve null cuando la evidencia alcanza para emitir un nivel de riesgo.
+ *
+ * Esta separada de la politica porque se aplica ANTES de cualquier clasificador:
+ * el modelo del backend solo decide el nivel cuando esta compuerta deja pasar.
+ */
+export const evidenciaInsuficiente = (features: FeatureSet): Verdict | null => {
+  const conocidas = resueltas(features);
+  const faltantes = sinResolver(features);
+
+  const dimensionesVacias = TODAS_LAS_DIMENSIONES.filter(
+    (d) => !featuresDeDimension(d).some((id) => esConocida(features[id])),
+  );
+
+  if (conocidas.length >= R_MINIMO && dimensionesVacias.length === 0) return null;
+
+  return {
+    kind: 'evidencia-insuficiente',
+    resueltas: conocidas,
+    sinResolver: faltantes,
+    dimensionesVacias,
+    motivo:
+      dimensionesVacias.length > 0
+        ? `Faltan datos de: ${dimensionesVacias.join(', ')}.`
+        : `Solo se pudieron verificar ${String(conocidas.length)} de ${String(FEATURE_IDS.length)} caracteristicas.`,
+  };
+};
+
+/**
  * Regla vigente: se emite veredicto si hay al menos R_MINIMO caracteristicas
  * resueltas Y cada dimension aporta al menos una. En cualquier otro caso, la
  * respuesta es `evidencia-insuficiente`.
@@ -33,25 +63,11 @@ export class ThresholdPolicy implements DecisionPolicy {
   readonly id = 'threshold-r4-una-por-dimension@en-revision';
 
   decidir(features: FeatureSet): Verdict {
+    const abstencion = evidenciaInsuficiente(features);
+    if (abstencion !== null) return abstencion;
+
     const conocidas = resueltas(features);
     const faltantes = sinResolver(features);
-
-    const dimensionesVacias = TODAS_LAS_DIMENSIONES.filter(
-      (d) => !featuresDeDimension(d).some((id) => esConocida(features[id])),
-    );
-
-    if (conocidas.length < R_MINIMO || dimensionesVacias.length > 0) {
-      return {
-        kind: 'evidencia-insuficiente',
-        resueltas: conocidas,
-        sinResolver: faltantes,
-        dimensionesVacias,
-        motivo:
-          dimensionesVacias.length > 0
-            ? `Faltan datos de: ${dimensionesVacias.join(', ')}.`
-            : `Solo se pudieron verificar ${String(conocidas.length)} de ${String(FEATURE_IDS.length)} caracteristicas.`,
-      };
-    }
 
     const { nivel, puntaje } = this.#puntuar(features);
 

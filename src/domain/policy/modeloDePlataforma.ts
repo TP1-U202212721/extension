@@ -4,9 +4,9 @@ import type { NivelDeRiesgo, Verdict } from '../verdict.js';
 /**
  * El veredicto que emite el modelo propio de una plataforma.
  *
- * Hoy solo Facebook Marketplace tiene uno. Ahi el nivel de riesgo lo decide el
- * modelo y NO la politica de esta extension, igual que hacia el flujo por URL
- * del backend. En el resto de plataformas decide la politica.
+ * El backend consulta un modelo por plataforma: el de Facebook Marketplace y el
+ * de e-commerce para el resto. Fuera de Facebook el modelo solo decide cuando la
+ * compuerta de abstencion deja pasar (ver BackendRiskEngineClient).
  *
  * El modelo solo se consulta cuando el comprador pidio revisar al vendedor y se
  * pudo leer lo esencial de su perfil; si no, el backend no lo llama y aqui no

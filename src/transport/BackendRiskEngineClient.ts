@@ -3,6 +3,7 @@ import type { DecisionPolicy } from '../domain/policy/DecisionPolicy.js';
 import type { TokenProvider } from '../auth/TokenProvider.js';
 import { analizarDocumento } from './DocumentAnalysisClient.js';
 import { veredictoDelModelo } from '../domain/policy/modeloDePlataforma.js';
+import { evidenciaInsuficiente } from '../domain/policy/ThresholdPolicy.js';
 import { consultarVeracidadDeDominio } from './DomainVeracityClient.js';
 import { consultarReputacion } from './SellerReputationClient.js';
 import { consultarAutenticidad } from './ReviewAnalysisClient.js';
@@ -105,18 +106,26 @@ export class BackendRiskEngineClient implements RiskEngineClient {
       resenas: paso(resenas),
     };
 
-    // En las plataformas con modelo propio (Facebook Marketplace) el nivel de
-    // riesgo lo decide ESE modelo, no la politica de aqui. El backend solo lo
-    // consulta cuando el comprador pidio revisar al vendedor y se pudo leer su
-    // perfil; si no, no viene nada y decide la politica, como siempre.
-    // Para Facebook se excluyen veracidadDeDominio y autenticidadDeResenas porque
-    // los analizadores correspondientes estan desactivados y siempre son indeterminadas.
+    // Fuera de Facebook la compuerta de abstencion va PRIMERO: si la evidencia
+    // no alcanza, el veredicto es `evidencia-insuficiente` y el clasificador del
+    // backend no decide nada. Sin esto el modelo recibiria ceros de relleno en lo
+    // que no se pudo leer y convertiria la falta de informacion en un nivel.
+    // Solo cuando la compuerta deja pasar decide el modelo (o, si no respondio,
+    // la politica local).
+    //
+    // Facebook Marketplace queda fuera a proposito: ahi estan apagados los
+    // analizadores de dominio, reputacion y resenas, y el volumen nunca se lee,
+    // asi que la compuerta se abstendria casi siempre. Decide su modelo propio,
+    // que solo se consulta cuando se pudo leer el perfil del vendedor.
     const excluidas = esFacebook ? (['veracidadDeDominio', 'autenticidadDeResenas'] as const) : [];
+    const abstencion = esFacebook ? null : evidenciaInsuficiente(features);
     const delModelo =
-      doc?.valor.modelo === undefined ? null : veredictoDelModelo(doc.valor.modelo, features, excluidas);
+      abstencion !== null || doc?.valor.modelo === undefined
+        ? null
+        : veredictoDelModelo(doc.valor.modelo, features, excluidas);
 
     return {
-      verdict: delModelo ?? this.policy.decidir(features),
+      verdict: abstencion ?? delModelo ?? this.policy.decidir(features),
       features,
       detalles,
       ...(doc?.valor.entradasModelo !== undefined && { entradasModelo: doc.valor.entradasModelo }),
