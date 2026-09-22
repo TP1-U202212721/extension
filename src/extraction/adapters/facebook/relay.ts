@@ -443,3 +443,71 @@ export const fotosDesdeElDom = (doc: Document, publicacionId: string): string =>
   const fotos = Array.from({ length: cuantas }, () => '{"__typename":"ProductImage"}').join(',');
   return `"marketplace_product_details_page":{"target":{"id":"${publicacionId}","listing_photos":[${fotos}]}}`;
 };
+
+/**
+ * El perfil del vendedor leido del DOM.
+ *
+ * Los datos incrustados del perfil llegan incompletos o directamente de otro
+ * vendedor, mientras que la pagina si muestra lo que importa: "20+ publicaciones
+ * activas · 29 seguidores", la insignia y el año de alta. Se devuelve con las
+ * claves que el backend ya sabe leer.
+ *
+ * Verificado sobre perfiles reales el 2026-09-22.
+ */
+const SEGUIDORES = /([\d.,]+)\s*\+?\s*(?:seguidores|followers)/i;
+const PUBLICACIONES = /([\d.,]+)\s*\+?\s*(?:publicaciones activas|active listings)/i;
+const INSIGNIA = /(Calificaci(?:ó|o)n alta|Highly rated|Muy valorado)/i;
+/** "4,8 · 23 calificaciones". Se exige el decimal y que la palabra este cerca:
+ *  un "5" suelto de cualquier parte de la pagina no es un promedio. */
+const PROMEDIO_DOM = /\b([0-5][.,]\d)\b.{0,40}?(?:calificaci|valoraci|rating|review)/i;
+const CUANTAS_DOM = /([\d.,]+)\s*(?:calificaciones|valoraciones|ratings|reviews)/i;
+
+const entero = (crudo: string | undefined): number | undefined => {
+  if (crudo === undefined) return undefined;
+  const n = Number.parseInt(crudo.replace(/[.,]/g, ''), 10);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+/**
+ * El texto que se ve, con un espacio entre cada trozo.
+ *
+ * `textContent` pega los bloques sin separarlos, y "...en 2008" seguido de
+ * "20+ publicaciones" se leia como el numero 200820.
+ */
+const textoVisible = (doc: Document): string => {
+  const partes: string[] = [];
+  const recorrido = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  for (let nodo = recorrido.nextNode(); nodo !== null; nodo = recorrido.nextNode()) {
+    const trozo = (nodo.textContent ?? '').trim();
+    if (trozo !== '') partes.push(trozo);
+  }
+  return partes.join(' ').replace(/\s+/g, ' ');
+};
+
+export const perfilDesdeElDom = (doc: Document): string => {
+  const texto = textoVisible(doc);
+
+  const seguidores = entero(SEGUIDORES.exec(texto)?.[1]);
+  const publicaciones = entero(PUBLICACIONES.exec(texto)?.[1]);
+  const insignia = INSIGNIA.exec(texto)?.[1];
+  const alta = ALTA_EN_FACEBOOK.exec(texto)?.[0];
+  const cuantas = entero(CUANTAS_DOM.exec(texto)?.[1]);
+  const promedio = PROMEDIO_DOM.exec(texto)?.[1]?.replace(',', '.');
+
+  const partes: string[] = [];
+  if (seguidores !== undefined) partes.push(`"marketplace_followers":{"count":${String(seguidores)}}`);
+  // "20+" es un piso, no el total: Facebook no publica el numero exacto.
+  if (publicaciones !== undefined) partes.push(`"active_listings_count":${String(publicaciones)}`);
+  if (insignia !== undefined) {
+    partes.push(`"commerce_badges_info":{"badges":[{"text":"${enJson(insignia)}"}]}`);
+  }
+  if (cuantas !== undefined) {
+    partes.push(
+      `"seller_buyer_combined":{"five_star_total_rating_count_by_role":${String(cuantas)}}`,
+    );
+    if (promedio !== undefined) partes.push(`"five_star_ratings_average":${promedio}`);
+  }
+  if (alta !== undefined) partes.push(`"alta":"${enJson(alta)}"`);
+
+  return partes.length === 0 ? '' : `{${partes.join(',')}}`;
+};

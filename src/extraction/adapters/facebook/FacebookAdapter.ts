@@ -13,6 +13,7 @@ import {
   fichaDesdeElDom,
   fotosDesdeElDom,
   idDelPerfil,
+  perfilDesdeElDom,
   recorteDelPerfil,
   textoEmbebido,
 } from './relay.js';
@@ -146,7 +147,9 @@ export class FacebookAdapter implements MarketplaceAdapter {
     const id = ID.exec(doc.URL)?.[1];
 
     if (id === undefined) {
-      return this.documento(doc, [recorteDelPerfil(texto)]);
+      // Pagina de perfil: primero lo que muestra, que es lo que el vendedor
+      // publica de verdad; el estado incrustado llega incompleto o de otro.
+      return this.documento(doc, [perfilDesdeElDom(doc), recorteDelPerfil(texto)]);
     }
 
     // Facebook navega entre publicaciones sin recargar, y la ficha abierta asi NO

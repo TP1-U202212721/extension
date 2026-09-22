@@ -5,6 +5,7 @@ import {
   bloqueDeLaFicha,
   cuantasFotos,
   descuento,
+  perfilDesdeElDom,
   textoEmbebido,
 } from '../../src/extraction/adapters/facebook/relay.js';
 import { adapterPara } from '../../src/extraction/registry.js';
@@ -329,5 +330,53 @@ describe('Facebook: la ficha se lee del DOM cuando no esta en los scripts', () =
 
     expect(enviado).toContain('Carcochitas');
     expect(enviado).toContain('"redacted_description"');
+  });
+});
+
+describe('Facebook: el perfil que se ve manda sobre el embebido', () => {
+  /** Lo que Facebook pinta en la cabecera del perfil del vendedor. */
+  const CABECERA =
+    '<div>Joha Lisse</div><div>Se unió a Facebook en 2008</div>' +
+    '<div>20+ publicaciones activas · 29 seguidores</div>' +
+    '<div>Calificación alta</div><div>4,8 · 23 calificaciones</div>';
+
+  /** El estado embebido del mismo perfil: en cero, como llega de verdad. */
+  const EMBEBIDO =
+    '{"__typename":"User","marketplace_followers":{"count":15}' +
+    ',"five_star_ratings_average":0' +
+    ',"seller_buyer_combined":{"five_star_total_rating_count_by_role":0}' +
+    ',"name":"Joha Lisse"},"commerce_badges_info":{"badges":[]}}';
+
+  const visible = (): Document =>
+    cargar(EMBEBIDO, CABECERA, 'https://www.facebook.com/marketplace/profile/100004395070520/');
+
+  it('toma calificaciones, promedio e insignia de lo que muestra la pagina', () => {
+    expect(fb.insumos(visible()).vendedor).toEqual({
+      sellerName: 'Joha Lisse',
+      platform: 'Facebook Marketplace',
+      ratingAverage: 4.8,
+      ratingCount: 23,
+      isRecognizedSeller: true,
+      badgeLabel: 'Calificación alta',
+    });
+  });
+
+  it('manda al backend seguidores, publicaciones activas y alta con las claves que ya lee', () => {
+    const leido = perfilDesdeElDom(visible());
+
+    expect(leido).toContain('"marketplace_followers":{"count":29}');
+    expect(leido).toContain('"active_listings_count":20');
+    expect(leido).toContain('"five_star_total_rating_count_by_role":23');
+    expect(leido).toContain('"five_star_ratings_average":4.8');
+    expect(leido).toContain('Se unió a Facebook en 2008');
+  });
+
+  it('no inventa nada cuando la pagina no muestra datos del vendedor', () => {
+    expect(perfilDesdeElDom(cargar('{}', '<div>Marketplace</div>'))).toBe('');
+  });
+
+  it('no toma por promedio un numero suelto de la pagina', () => {
+    const doc = cargar('{}', '<div>S/ 4,5</div><div>3,2 kg de peso</div>');
+    expect(perfilDesdeElDom(doc)).not.toContain('five_star_ratings_average');
   });
 });

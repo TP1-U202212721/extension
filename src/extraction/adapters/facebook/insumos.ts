@@ -5,6 +5,7 @@ import {
   cuantasCalificaciones,
   distintivo,
   nombreDelVendedor,
+  perfilDesdeElDom,
   promedio,
   publicacionesActivas,
   resenasDelVendedor,
@@ -75,9 +76,13 @@ const bloqueDeEstaFicha = (doc: Document, texto: string): string => {
 
 export const insumosDe = (doc: Document): Insumos => {
   const texto = textoEmbebido(doc);
+  // Lo que la pagina MUESTRA va primero, y por eso gana: en los perfiles el
+  // estado embebido llega en cero (sin calificaciones, sin insignia) aunque
+  // arriba se lea "29 seguidores" y "Calificacion alta".
+  const conLoVisible = perfilDesdeElDom(doc) + texto;
   return {
     // El vendedor se lee del texto entero: en el perfil no hay publicacion que acotar.
-    vendedor: datosDelVendedor(texto),
+    vendedor: datosDelVendedor(conLoVisible),
     resenas: resenasDelVendedor(texto),
     categoria: categoria(bloqueDeEstaFicha(doc, texto)),
   };
