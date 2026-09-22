@@ -189,6 +189,13 @@ export const PATRONES = {
   precio: /"listing_price":\{[^}]*?"amount":"([\d.]+)"/,
   /** Puede venir en null, y entonces no hay descuento que calcular. */
   precioTachado: /"strikethrough_price":(?:null|\{[^}]*?"amount":"([\d.]+)")/,
+  /**
+   * El precio tachado tal como Facebook lo escribe hoy: sin `amount`, solo el
+   * texto ya formateado ("S\/25"). Verificado el 2026-09-22 en una publicacion
+   * con rebaja: asi llega SIEMPRE, y por eso el descuento nunca se detectaba.
+   */
+  precioTachadoFormateado:
+    /"strikethrough_price":\{[^}]*?"formattedAmountWithoutDecimals":"([^"]+)"/,
   descripcion: /"redacted_description":\{"text":"((?:[^"\\]|\\.)*)"/,
   /** Una publicacion activa del vendedor: ni vendida ni dada de baja. */
   publicacionActiva:
@@ -278,10 +285,26 @@ export const categoria = (bloque: string): string => {
 export const cuantasFotos = (texto: string): number =>
   (bloqueDeLasFotos(texto).match(PATRONES.foto) ?? []).length;
 
+/**
+ * Un importe ya formateado a numero: "S\/1,299" -> 1299.
+ *
+ * Se quitan el simbolo de moneda y los separadores de miles. No hay decimales
+ * que perder: la clave se llama `formattedAmountWithoutDecimals`.
+ */
+const importeFormateado = (crudo: string | undefined): number | undefined => {
+  if (crudo === undefined) return undefined;
+  const digitos = crudo.replace(/[^\d]/g, '');
+  if (digitos === '') return undefined;
+  const n = Number.parseInt(digitos, 10);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 /** Descuento en porcentaje, solo si hay precio tachado mayor que el vigente. */
 export const descuento = (bloque: string): number | undefined => {
   const ahora = numero(capturar(bloque, PATRONES.precio));
-  const antes = numero(capturar(bloque, PATRONES.precioTachado));
+  const antes =
+    numero(capturar(bloque, PATRONES.precioTachado)) ??
+    importeFormateado(capturar(bloque, PATRONES.precioTachadoFormateado));
   if (ahora === undefined || antes === undefined || antes <= 0 || antes <= ahora) return undefined;
   return Math.round(((antes - ahora) / antes) * 10000) / 100;
 };

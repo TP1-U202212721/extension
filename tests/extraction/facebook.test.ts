@@ -428,3 +428,37 @@ describe('Facebook: calificaciones privadas', () => {
     expect(fb.insumos(doc).vendedor).toMatchObject({ ratingAverage: 4.2, ratingCount: 11 });
   });
 });
+
+/**
+ * Caso real (publicacion 1470519821874986, 2026-09-22): Facebook ya NO manda
+ * `"amount"` dentro del precio tachado, solo el texto formateado. Con el lector
+ * viejo el descuento salia siempre en cero y el modelo recibia una columna muerta.
+ */
+describe('Facebook: el precio tachado como lo manda hoy', () => {
+  it('calcula el descuento con el importe ya formateado', () => {
+    const bloque =
+      '{"listing_price":{"formatted_amount_zeros_stripped":"S\\/20","amount":"20.00"},' +
+      '"strikethrough_price":{"formattedAmountWithoutDecimals":"S\\/25"}}';
+
+    expect(descuento(bloque)).toBe(20);
+  });
+
+  it('entiende los miles con separador', () => {
+    const bloque =
+      '{"listing_price":{"amount":"900.00"},' +
+      '"strikethrough_price":{"formattedAmountWithoutDecimals":"S\\/1,200"}}';
+
+    expect(descuento(bloque)).toBe(25);
+  });
+
+  it('sigue prefiriendo el importe exacto cuando viene', () => {
+    const bloque =
+      '{"listing_price":{"amount":"50.00"},"strikethrough_price":{"amount":"100.00"}}';
+
+    expect(descuento(bloque)).toBe(50);
+  });
+
+  it('no inventa descuento cuando no hay precio tachado', () => {
+    expect(descuento('{"listing_price":{"amount":"20.00"},"strikethrough_price":null}')).toBeUndefined();
+  });
+});
