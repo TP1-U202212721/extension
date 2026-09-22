@@ -31,6 +31,19 @@ export interface DetalleDocumento {
   readonly sinDeterminar: readonly string[];
 }
 
+/** Inputs del modelo de Facebook Marketplace, si el backend los devolvió. */
+export interface EntradasModelo {
+  readonly discount: number;
+  readonly ratingAvg: number;
+  readonly ratingCount: number;
+  readonly shopFollowerCount: number;
+  readonly shopItemCount: number;
+  readonly isShopeeVerified: number;
+  readonly sellerSeniorityInDays: number;
+  readonly imagesCount: number;
+  readonly cobertura_evidencia: number;
+}
+
 export interface ResultadoDocumento {
   readonly features: FeatureSet;
   readonly detalle: DetalleDocumento | null;
@@ -39,6 +52,8 @@ export interface ResultadoDocumento {
    * Marketplace, y solo cuando el comprador pidio revisar al vendedor.
    */
   readonly modelo?: VeredictoDelModelo;
+  /** Inputs del modelo de la plataforma, para mostrar en la UI. */
+  readonly entradasModelo?: EntradasModelo;
   /** Como termino la llamada. Lo consume la analitica de uso, no la presentacion. */
   readonly desenlace: DesenlaceLlamada;
 }
@@ -184,10 +199,12 @@ export const analizarDocumento = async (
     }
 
       const modelo = modeloDe(item);
+    const entradasModelo = entradasModeloDe(item);
     return {
       features: mapear(item),
       detalle: detalleDe(item),
       ...(modelo !== null && { modelo }),
+      ...(entradasModelo !== undefined && { entradasModelo }),
       desenlace: 'correcto',
     };
   } catch {
@@ -208,6 +225,22 @@ const modeloDe = (item: Sobre): VeredictoDelModelo | null => {
   const clase = modelo.num('result');
   if (clase === null) return null;
   return { clase, rellenadas: modelo.cadenas('filledInputs') };
+};
+
+const entradasModeloDe = (item: Sobre): EntradasModelo | undefined => {
+  const mi = item.obj('modelInputs');
+  if (mi.raw === null || mi.raw === undefined) return undefined;
+  return {
+    discount: mi.numOr('discount', 0),
+    ratingAvg: mi.numOr('ratingAverage', 0),
+    ratingCount: mi.numOr('ratingCount', 0),
+    shopFollowerCount: mi.numOr('followers', 0),
+    shopItemCount: mi.numOr('activeListings', 0),
+    isShopeeVerified: mi.bool('hasBadge') ? 1 : 0,
+    sellerSeniorityInDays: mi.numOr('sellerSeniorityInDays', 0),
+    imagesCount: mi.numOr('imagesCount', 0),
+    cobertura_evidencia: mi.numOr('coverage', 0),
+  };
 };
 
 const estadosDe = (item: Sobre): ReadonlyMap<string, Estado> => {

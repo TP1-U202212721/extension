@@ -2,7 +2,7 @@ import type { FeatureSet } from '../domain/features.js';
 import type { Insumos } from '../domain/insumos.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio } from './DomainVeracityClient.js';
-import type { DetalleDocumento } from './DocumentAnalysisClient.js';
+import type { DetalleDocumento, EntradasModelo } from './DocumentAnalysisClient.js';
 import type { DetalleVendedor } from './SellerReputationClient.js';
 import type { DetalleResenas } from './ReviewAnalysisClient.js';
 
@@ -81,6 +81,8 @@ export interface Evaluacion {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
   readonly detalles: Detalles;
+  /** Inputs del modelo de la plataforma, para mostrar en la UI. */
+  readonly entradasModelo?: EntradasModelo;
   /**
    * Como termino y cuanto tardo cada analizador. Se devuelve con el veredicto
    * porque es cuando se sabe: reconstruirlo despues obligaria a medir dos veces

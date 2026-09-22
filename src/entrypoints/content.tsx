@@ -32,12 +32,14 @@ import { insertarBadgeTarjeta, limpiarBadgesTarjeta } from '../ui/badgeTarjeta.j
 import { indeterminado, FEATURE_IDS, type FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import { SIN_DETALLES, type Detalles } from '../transport/RiskEngineClient.js';
+import type { EntradasModelo } from '../transport/DocumentAnalysisClient.js';
 import type { Insumos } from '../domain/insumos.js';
 
 interface Evaluado {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
   readonly detalles: Detalles;
+  readonly entradasModelo?: EntradasModelo;
 }
 import '../ui/tailwind.css';
 
@@ -201,7 +203,20 @@ export default defineContentScript({
      * ofrece reintentarlo.
      */
     const traerPerfil = async (): Promise<boolean> => {
-      const perfil = adapter.perfilDelVendedor?.(document) ?? null;
+      let perfil = adapter.perfilDelVendedor?.(document) ?? null;
+
+      // Facebook carga el enlace del vendedor de forma dinámica (React/Relay):
+      // puede no estar en el DOM cuando el content script arranca. Se espera
+      // un poco antes de declarar que no está.
+      if (perfil === null) {
+        const encontrado = await esperarElemento(
+          document.body,
+          () => document.querySelector('a[href*="/marketplace/profile/"]'),
+          3000,
+        );
+        if (encontrado !== null) perfil = adapter.perfilDelVendedor?.(document) ?? null;
+      }
+
       if (perfil === null) return false;
 
       // Sin sesion el analisis no va a salir igual: no se abre nada.
@@ -239,6 +254,7 @@ export default defineContentScript({
           verdict: bruto.verdict,
           features: bruto.features,
           detalles: bruto.detalles,
+          entradasModelo: bruto.entradasModelo,
         };
         // Almacenar resultado en storage para que el popup pueda mostrarlo.
         await browser.storage.local.set({

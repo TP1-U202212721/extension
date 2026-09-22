@@ -54,8 +54,10 @@ export class BackendRiskEngineClient implements RiskEngineClient {
 
     const esFacebook = solicitud.url.includes('facebook.com/marketplace');
 
+    const plataformaDetectada = esFacebook ? 'Facebook Marketplace' : 'Mercado Libre';
+
     const datosVendedor: DatosDelVendedor | null =
-      solicitud.insumos.vendedor ?? { sellerName: '', platform: 'Mercado Libre' };
+      solicitud.insumos.vendedor ?? { sellerName: '', platform: plataformaDetectada };
 
     const [doc, dominio, vendedor, resenas] = await Promise.all([
       cronometrar(
@@ -66,7 +68,7 @@ export class BackendRiskEngineClient implements RiskEngineClient {
         this.analizadores.dominio && !esFacebook,
         () => consultarVeracidadDeDominio(solicitud.url, token),
       ),
-      cronometrar(this.analizadores.vendedor, () =>
+      cronometrar(this.analizadores.vendedor && !esFacebook, () =>
         consultarReputacion(datosVendedor, this.tokens),
       ),
       cronometrar(this.analizadores.resenas && !esFacebook, () =>
@@ -107,10 +109,19 @@ export class BackendRiskEngineClient implements RiskEngineClient {
     // riesgo lo decide ESE modelo, no la politica de aqui. El backend solo lo
     // consulta cuando el comprador pidio revisar al vendedor y se pudo leer su
     // perfil; si no, no viene nada y decide la politica, como siempre.
+    // Para Facebook se excluyen veracidadDeDominio y autenticidadDeResenas porque
+    // los analizadores correspondientes estan desactivados y siempre son indeterminadas.
+    const excluidas = esFacebook ? (['veracidadDeDominio', 'autenticidadDeResenas'] as const) : [];
     const delModelo =
-      doc?.valor.modelo === undefined ? null : veredictoDelModelo(doc.valor.modelo, features);
+      doc?.valor.modelo === undefined ? null : veredictoDelModelo(doc.valor.modelo, features, excluidas);
 
-    return { verdict: delModelo ?? this.policy.decidir(features), features, detalles, traza };
+    return {
+      verdict: delModelo ?? this.policy.decidir(features),
+      features,
+      detalles,
+      ...(doc?.valor.entradasModelo !== undefined && { entradasModelo: doc.valor.entradasModelo }),
+      traza,
+    };
   }
 }
 

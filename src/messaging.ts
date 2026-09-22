@@ -1,6 +1,7 @@
 import type { FeatureSet } from './domain/features.js';
 import type { Verdict } from './domain/verdict.js';
 import type { Detalles } from './transport/RiskEngineClient.js';
+import type { EntradasModelo } from './transport/DocumentAnalysisClient.js';
 import type { Insumos } from './domain/insumos.js';
 import type { BloqueInteraccion } from './domain/analitica/eventos.js';
 import type { Instrumento } from './domain/encuesta/instrumento.js';
@@ -152,6 +153,8 @@ export interface VeredictoRespuesta {
   readonly features: FeatureSet;
   /** Evidencia de cada analizador, para la presentacion explicativa. */
   readonly detalles: Detalles;
+  /** Inputs del modelo de la plataforma, para Facebook Marketplace. */
+  readonly entradasModelo?: EntradasModelo;
 }
 
 /** El motor exige sesion y no hay ninguna activa. */

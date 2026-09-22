@@ -4,6 +4,7 @@ import { Shield, ShieldAlert, ShieldCheck, ShieldQuestion, Loader2, LogIn } from
 import type { FeatureSet } from '../domain/features.js';
 import type { Verdict } from '../domain/verdict.js';
 import type { Detalles } from '../transport/RiskEngineClient.js';
+import type { EntradasModelo } from '../transport/DocumentAnalysisClient.js';
 import type { VeredictoAnalitica } from '../domain/analitica/eventos.js';
 import { veredictoAnalitico } from '../analytics/desenlace.js';
 import type { Instrumento } from '../domain/encuesta/instrumento.js';
@@ -17,6 +18,7 @@ export interface Evaluado {
   readonly verdict: Verdict;
   readonly features: FeatureSet;
   readonly detalles: Detalles;
+  readonly entradasModelo?: EntradasModelo;
 }
 
 type Estado =
@@ -28,6 +30,7 @@ type Estado =
       readonly verdict: Verdict;
       readonly features: FeatureSet;
       readonly detalles: Detalles;
+      readonly entradasModelo?: EntradasModelo;
     };
 
 /**
@@ -190,7 +193,7 @@ export function ScamShieldBadge({
         abrirSesion?.();
         return;
       }
-      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles });
+      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles, entradasModelo: r.entradasModelo });
       // La advertencia acaba de aparecer: es el denominador de todas las tasas
       // de interaccion, y se emite antes que la expansion que viene con ella.
       interacciones?.advertenciaMostrada(veredictoAnalitico(r.verdict));
@@ -219,7 +222,7 @@ export function ScamShieldBadge({
         setVendedor('fallo');
         return;
       }
-      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles });
+      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles, entradasModelo: r.entradasModelo });
       setVendedor('revisado');
       interacciones?.advertenciaMostrada(veredictoAnalitico(r.verdict));
     });
@@ -349,6 +352,7 @@ export function ScamShieldBadge({
             verdict={estado.verdict}
             features={estado.features}
             detalles={estado.detalles}
+            entradasModelo={estado.entradasModelo}
             plataforma={plataforma}
             encuesta={panelDeEncuesta}
             onDetalleAbierto={() => {

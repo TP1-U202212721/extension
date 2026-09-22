@@ -12,9 +12,18 @@
  * lo minimo para la reputacion, las resenas y el enlace al perfil.
  *
  * Verificado contra una publicacion real de facebook.com/marketplace el
- * 2026-09-21, SIN sesion iniciada. Lo del vendedor (`marketplace_listing_seller`)
- * llega en null mientras no haya sesion, asi que esos patrones siguen sin
- * verificar y estan marcados uno por uno.
+ * 2026-09-21, SIN sesion iniciada:
+ * - `marketplace_listing_seller` es null → `vendedorId` no matchea.
+ * - El perfil del vendedor NO aparece como `a[href*="/marketplace/profile/"]`
+ *   en el DOM. Solo viene en un redirect de login URL-encoded
+ *   (`next=...%2Fmarketplace%2Fprofile%2F{id}%2F`), capturado por
+ *   `perfilEscapado`.
+ * - Los ratings y seguidores vienen en un bloque preloaded separado
+ *   (`MarketplaceSellerProfileDialogQueryRelayPreloader`), no en la ficha.
+ *   `recorteDelPerfil` los encuentra porque busca por marcas en el texto
+ *   completo.
+ * - `cuantasCalificaciones` esta en `seller_stats`, no en
+ *   `seller_buyer_combined`.
  *
  * La pagina trae los datos de MUCHAS publicaciones (las relacionadas: 22 en la
  * que se verifico). Por eso nada se busca en el texto entero: primero se acota
@@ -138,6 +147,12 @@ export const PATRONES = {
    */
   perfil: /marketplace\\?\/profile\\?\/(\d{10,17})/,
   /**
+   * La misma URL viene codificada en un redirect de login incrustado en la
+   * pagina: `next=https%3A%2F%2Fwww.facebook.com%2Fmarketplace%2Fprofile%2F{id}%2F`.
+   * Sin sesion iniciada esta es la UNICA fuente del id del vendedor.
+   */
+  perfilEscapado: /%2Fmarketplace%2Fprofile%2F(\d{10,17})/,
+  /**
    * El mismo id, cuando solo viene dentro del objeto del vendedor. En la ficha
    * la clave es `marketplace_listing_seller`; en el perfil, `seller`.
    */
@@ -145,7 +160,7 @@ export const PATRONES = {
   seguidores: /"marketplace_followers":\{"count":(\d+)\}/,
   promedio: /"five_star_ratings_average"\s*:\s*([\d.]+)/,
   cuantasCalificaciones:
-    /"seller_buyer_combined"\s*:\s*\{[^}]*?"five_star_total_rating_count_by_role"\s*:\s*(\d+)/,
+    /"(?:seller_stats|seller_buyer_combined)"\s*:\s*\{[^}]*?"five_star_total_rating_count_by_role"\s*:\s*(\d+)/,
   /** SIN VERIFICAR: el vendedor llega en null sin sesion iniciada. */
   nombre: /"name":"([^"]+)"\},"commerce_badges_info"/,
   nombreCorto: /"short_name":"([^"]+)"/,
@@ -185,7 +200,9 @@ export const estrellasDe = (valor: string | undefined): number | undefined =>
   })[valor ?? ''];
 
 export const idDelPerfil = (texto: string): string | undefined =>
-  capturar(texto, PATRONES.perfil) ?? capturar(texto, PATRONES.vendedorId);
+  capturar(texto, PATRONES.perfil) ??
+  capturar(texto, PATRONES.perfilEscapado) ??
+  capturar(texto, PATRONES.vendedorId);
 
 export const seguidores = (texto: string): number | undefined =>
   numero(capturar(texto, PATRONES.seguidores));

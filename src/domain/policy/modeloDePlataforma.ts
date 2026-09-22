@@ -1,4 +1,4 @@
-import { FEATURE_IDS, resueltas, sinResolver, type FeatureSet } from '../features.js';
+import { FEATURE_IDS, esConocida, type FeatureId, type FeatureSet } from '../features.js';
 import type { NivelDeRiesgo, Verdict } from '../verdict.js';
 
 /**
@@ -50,16 +50,22 @@ export interface VeredictoDelModelo {
  *
  * Devuelve null cuando la clase no se reconoce: una clase nueva no se presenta
  * como seguridad ni como riesgo, se ignora y decide la politica.
+ *
+ * `excluir` permite quitar features que la plataforma no usa (ej: veracidadDeDominio
+ * en Facebook, que siempre es indeterminada porque el analizador de dominio esta
+ * desactivado). Sin ellas, la confianza se calcula sobre las features relevantes.
  */
 export const veredictoDelModelo = (
   modelo: VeredictoDelModelo,
   features: FeatureSet,
+  excluir: readonly FeatureId[] = [],
 ): Verdict | null => {
   const nivel = CLASES[modelo.clase];
   if (nivel === undefined) return null;
 
-  const conocidas = resueltas(features);
-  const faltantes = sinResolver(features);
+  const relevantes = FEATURE_IDS.filter((id) => !excluir.includes(id));
+  const conocidas = relevantes.filter((id) => esConocida(features[id]));
+  const faltantes = relevantes.filter((id) => !esConocida(features[id]));
 
   if (nivel === 'sin-verificar') {
     return {

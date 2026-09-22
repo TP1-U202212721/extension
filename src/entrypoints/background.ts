@@ -247,11 +247,11 @@ export default defineBackground(() => {
           insumos: mensaje.insumos,
           ...(mensaje.htmlVendedor !== undefined && { htmlVendedor: mensaje.htmlVendedor }),
         })
-        .then(({ verdict, features, detalles, traza }) => {
+        .then(({ verdict, features, detalles, entradasModelo, traza }) => {
           // El veredicto sale PRIMERO. La analitica se encola despues y sin
           // esperar a nada: acumular en `storage.local` no puede meterse en el
           // camino de lo que el comprador esta esperando.
-          sendResponse({ tipo: 'veredicto', verdict, features, detalles });
+          sendResponse({ tipo: 'veredicto', verdict, features, detalles, entradasModelo });
 
           analitica.consultaResuelta(
             ctx,

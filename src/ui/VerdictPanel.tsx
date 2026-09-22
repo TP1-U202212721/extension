@@ -11,6 +11,7 @@ import type { Verdict } from '../domain/verdict.js';
 import type { DetalleDominio, SenalDominio } from '../transport/DomainVeracityClient.js';
 import type { DetalleVendedor, SenalVendedor } from '../transport/SellerReputationClient.js';
 import type { Detalles } from '../transport/RiskEngineClient.js';
+import type { EntradasModelo } from '../transport/DocumentAnalysisClient.js';
 import { AVISO, COLOR_DESENLACE, ETIQUETA_DESENLACE } from './estilos.js';
 
 const iconoDe = (clave: keyof typeof ETIQUETA_DESENLACE) => {
@@ -25,6 +26,8 @@ interface Props {
   readonly plataforma: string;
   /** Evidencia de cada analizador del backend, si respondieron. */
   readonly detalles?: Detalles;
+  /** Inputs del modelo de la plataforma, para Facebook Marketplace. */
+  readonly entradasModelo?: EntradasModelo;
   readonly onCerrar?: () => void;
   /**
    * La encuesta de satisfaccion, cuando toca ofrecerla. Entra como nodo y no
@@ -46,6 +49,7 @@ export function VerdictPanel({
   features,
   plataforma,
   detalles,
+  entradasModelo,
   onCerrar,
   encuesta,
   onDetalleAbierto,
@@ -59,7 +63,12 @@ export function VerdictPanel({
   const esFacebook = plataforma === 'Facebook Marketplace';
 
   const featuresVisibles = FEATURE_IDS.filter((id) => {
-    if (esFacebook && (id === 'veracidadDeDominio' || id === 'autenticidadDeResenas')) return false;
+    if (esFacebook && (
+      id === 'veracidadDeDominio' ||
+      id === 'autenticidadDeResenas' ||
+      id === 'proteccionDePago' ||
+      id === 'reputacionDelVendedor'
+    )) return false;
     return true;
   });
 
@@ -114,14 +123,20 @@ export function VerdictPanel({
 
       {vendedor != null && <AnalisisDelVendedor d={vendedor} onAbrir={onDetalleAbierto} />}
 
-      <ListaCaracteristicas titulo="Se verifico" ids={resueltas} features={features} verificado plataforma={plataforma} />
-      <ListaCaracteristicas
-        titulo="No se pudo verificar"
-        ids={pendientes}
-        features={features}
-        verificado={false}
-        plataforma={plataforma}
-      />
+      {esFacebook ? (
+        <ListaInputsModelo entradas={entradasModelo} />
+      ) : (
+        <>
+          <ListaCaracteristicas titulo="Se verifico" ids={resueltas} features={features} verificado plataforma={plataforma} />
+          <ListaCaracteristicas
+            titulo="No se pudo verificar"
+            ids={pendientes}
+            features={features}
+            verificado={false}
+            plataforma={plataforma}
+          />
+        </>
+      )}
 
       {encuesta}
 
@@ -342,6 +357,51 @@ function GrupoSenales({
             {s.explanation}
           </li>
         ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Inputs del modelo de Facebook Marketplace, según Classification Model Marketplace/README.md. */
+const FACEBOOK_MODEL_INPUTS: readonly { key: keyof EntradasModelo; label: string; fmt: (v: number) => string }[] = [
+  { key: 'sellerSeniorityInDays', label: 'Antigüedad del vendedor', fmt: (v) => `${v} días` },
+  { key: 'ratingAvg', label: 'Calificación promedio', fmt: (v) => v > 0 ? `${v.toFixed(1)} / 5` : 'Sin calificaciones' },
+  { key: 'ratingCount', label: 'Cantidad de calificaciones', fmt: (v) => v > 0 ? String(v) : 'Ninguna' },
+  { key: 'shopFollowerCount', label: 'Seguidores', fmt: (v) => v > 0 ? String(v) : 'Sin seguidores' },
+  { key: 'shopItemCount', label: 'Publicaciones activas', fmt: (v) => v > 0 ? String(v) : 'Sin publicaciones' },
+  { key: 'isShopeeVerified', label: 'Vendedor verificado', fmt: (v) => v >= 1 ? 'Sí' : 'No' },
+  { key: 'discount', label: 'Descuento', fmt: (v) => v > 0 ? `${v}%` : 'Sin descuento' },
+  { key: 'imagesCount', label: 'Imágenes', fmt: (v) => v > 0 ? String(v) : 'Sin imágenes' },
+  { key: 'cobertura_evidencia', label: 'Cobertura de evidencia', fmt: (v) => `${Math.round(v * 100)}%` },
+];
+
+function ListaInputsModelo({ entradas }: { readonly entradas?: EntradasModelo }) {
+  return (
+    <div className="mb-3">
+      <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+        Criterios del modelo ({FACEBOOK_MODEL_INPUTS.length})
+      </h2>
+      <ul className="space-y-2">
+        {FACEBOOK_MODEL_INPUTS.map(({ key, label, fmt }) => {
+          const valor = entradas?.[key] ?? 0;
+          const esCero = valor === 0;
+          const sinDatos = entradas === undefined;
+          return (
+            <li key={key} className="flex items-start gap-2 text-sm">
+              <CircleHelp
+                size={16}
+                aria-hidden
+                className={`mt-0.5 shrink-0 ${sinDatos ? 'text-slate-400' : esCero ? 'text-amber-500' : 'text-emerald-600'}`}
+              />
+              <span>
+                <span className="font-semibold">{label}</span>
+                <span className="block text-xs text-slate-500">
+                  {sinDatos ? 'Sin datos del perfil' : typeof valor === 'number' ? fmt(valor) : '—'}
+                </span>
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
