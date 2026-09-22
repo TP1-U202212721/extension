@@ -119,3 +119,59 @@ describe('Amazon: tarjetas del listado real', () => {
     for (const t of tarjetas) expect(t.href).toMatch(/\/(dp|gp\/product)\//);
   });
 });
+
+/**
+ * eBay cambio la maqueta de las valoraciones: ya no hay pestanas por articulo
+ * sino un desplegable, y la lista es la del vendedor ("Seller feedback (646)").
+ * Verificado el 2026-09-22 sobre una ficha real. Con el selector viejo la
+ * extension devolvia CERO resenas aunque la pagina mostrara ocho, y eso dejaba
+ * la dimension comunitaria vacia: el veredicto salia siempre
+ * "evidencia insuficiente", incluso con el vendedor en rojo.
+ */
+describe('eBay: la maqueta nueva de valoraciones', () => {
+  const conDesplegable = (): Document =>
+    new DOMParser().parseFromString(
+      `<html><body><div class="fdbk-detail-list">
+        <h2 class="fdbk-detail-list__title"><span>Seller feedback</span><span>(646)</span></h2>
+        <div class="fdbk-detail-list__rating-filter"><button>All ratings</button></div>
+        <div class="fdbk-container">
+          <span class="fdbk-container__details__info__username">u***g (65)</span>
+          <span data-test-type="positive"></span>
+          <div class="fdbk-container__details__comment">Item came exactly as described.</div>
+        </div>
+        <div class="fdbk-container">
+          <span class="fdbk-container__details__info__username">eBay automated feedback</span>
+          <span data-test-type="positive"></span>
+          <div class="fdbk-container__details__comment">Comentario automatizado.</div>
+        </div>
+        <div class="fdbk-container">
+          <span class="fdbk-container__details__info__username">a***b (12)</span>
+          <span data-test-type="negative"></span>
+          <div class="fdbk-container__details__comment">Nunca llego el paquete.</div>
+        </div>
+      </div></body></html>`,
+      'text/html',
+    );
+
+  it('lee las valoraciones aunque ya no haya pestanas', () => {
+    expect(ebay.insumos(conDesplegable()).resenas).toEqual([
+      { text: 'Item came exactly as described.', rating: 5 },
+      { text: 'Nunca llego el paquete.', rating: 1 },
+    ]);
+  });
+
+  it('sigue leyendo la maqueta con pestanas', () => {
+    const conPestanas = new DOMParser().parseFromString(
+      `<html><body><div class="fdbk-detail-list">
+        <div role="tabpanel"><div class="fdbk-container">
+          <span class="fdbk-container__details__info__username">c***d (9)</span>
+          <span data-test-type="positive"></span>
+          <div class="fdbk-container__details__comment">Todo perfecto.</div>
+        </div></div>
+      </div></body></html>`,
+      'text/html',
+    );
+
+    expect(ebay.insumos(conPestanas).resenas).toEqual([{ text: 'Todo perfecto.', rating: 5 }]);
+  });
+});

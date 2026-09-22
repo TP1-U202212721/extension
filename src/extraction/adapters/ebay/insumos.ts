@@ -19,8 +19,18 @@ export const SELECTORES = {
   datos: ['.x-store-information .ux-icon-text__text'],
   /** Distintivo del propio articulo; "Top Rated" tambien sale en el pie de pagina. */
   distintivo: ['.x-shop-with-confidence .ux-section-icon-with-details__data-title'],
-  /** La primera pestana de valoraciones es la de este articulo. */
-  panelDelArticulo: [".fdbk-detail-list [role='tabpanel']"],
+  /**
+   * De donde salen las valoraciones.
+   *
+   * eBay tenia pestanas y la primera era la de ESTE articulo. En la maqueta
+   * nueva no hay pestanas sino un desplegable ("All ratings / Positive /
+   * Neutral / Negative") y la lista es la del VENDEDOR, titulada
+   * "Seller feedback (646)". Se aceptan las dos: sin el respaldo, el panel se
+   * quedaba sin una sola resena aunque la pagina mostrara ocho, y con la
+   * dimension comunitaria vacia el veredicto salia siempre
+   * "evidencia insuficiente". Verificado el 2026-09-22.
+   */
+  panelDelArticulo: [".fdbk-detail-list [role='tabpanel']", '.fdbk-detail-list'],
   valoracion: '.fdbk-container',
   comentario: '.fdbk-container__details__comment',
   autor: '.fdbk-container__details__info__username',
