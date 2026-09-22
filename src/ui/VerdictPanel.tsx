@@ -27,7 +27,7 @@ interface Props {
   /** Evidencia de cada analizador del backend, si respondieron. */
   readonly detalles?: Detalles;
   /** Inputs del modelo de la plataforma, para Facebook Marketplace. */
-  readonly entradasModelo?: EntradasModelo;
+  readonly entradasModelo?: EntradasModelo | undefined;
   readonly onCerrar?: () => void;
   /**
    * La encuesta de satisfaccion, cuando toca ofrecerla. Entra como nodo y no
@@ -364,18 +364,22 @@ function GrupoSenales({
 
 /** Inputs del modelo de Facebook Marketplace, según Classification Model Marketplace/README.md. */
 const FACEBOOK_MODEL_INPUTS: readonly { key: keyof EntradasModelo; label: string; fmt: (v: number) => string }[] = [
-  { key: 'sellerSeniorityInDays', label: 'Antigüedad del vendedor', fmt: (v) => `${v} días` },
-  { key: 'ratingAvg', label: 'Calificación promedio', fmt: (v) => v > 0 ? `${v.toFixed(1)} / 5` : 'Sin calificaciones' },
+  { key: 'sellerSeniorityInDays', label: 'Antigüedad del vendedor', fmt: (v) => `${String(v)} días` },
+  { key: 'ratingAvg', label: 'Calificación promedio', fmt: (v) => (v > 0 ? `${v.toFixed(1)} / 5` : 'Sin calificaciones') },
   { key: 'ratingCount', label: 'Cantidad de calificaciones', fmt: (v) => v > 0 ? String(v) : 'Ninguna' },
   { key: 'shopFollowerCount', label: 'Seguidores', fmt: (v) => v > 0 ? String(v) : 'Sin seguidores' },
   { key: 'shopItemCount', label: 'Publicaciones activas', fmt: (v) => v > 0 ? String(v) : 'Sin publicaciones' },
   { key: 'isShopeeVerified', label: 'Vendedor verificado', fmt: (v) => v >= 1 ? 'Sí' : 'No' },
-  { key: 'discount', label: 'Descuento', fmt: (v) => v > 0 ? `${v}%` : 'Sin descuento' },
+  { key: 'discount', label: 'Descuento', fmt: (v) => (v > 0 ? `${String(v)}%` : 'Sin descuento') },
   { key: 'imagesCount', label: 'Imágenes', fmt: (v) => v > 0 ? String(v) : 'Sin imágenes' },
-  { key: 'cobertura_evidencia', label: 'Cobertura de evidencia', fmt: (v) => `${Math.round(v * 100)}%` },
+  {
+    key: 'cobertura_evidencia',
+    label: 'Cobertura de evidencia',
+    fmt: (v) => `${String(Math.round(v * 100))}%`,
+  },
 ];
 
-function ListaInputsModelo({ entradas }: { readonly entradas?: EntradasModelo }) {
+function ListaInputsModelo({ entradas }: { readonly entradas?: EntradasModelo | undefined }) {
   return (
     <div className="mb-3">
       <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">

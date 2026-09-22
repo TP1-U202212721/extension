@@ -4,7 +4,8 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   // Los runners e2e en CommonJS se ejecutan con Node fuera del proyecto TypeScript:
   // el lint con projectService no puede resolverlos y los rechaza como error de parseo.
-  { ignores: ['.wxt/**', '.output/**', 'node_modules/**', 'tests/e2e/**/*.cjs'] },
+  // `builds/` son artefactos compilados que se versionaron: no se revisan.
+  { ignores: ['.wxt/**', '.output/**', 'builds/**', 'node_modules/**', 'tests/e2e/**/*.cjs'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {

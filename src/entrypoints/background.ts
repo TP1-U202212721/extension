@@ -251,7 +251,14 @@ export default defineBackground(() => {
           // El veredicto sale PRIMERO. La analitica se encola despues y sin
           // esperar a nada: acumular en `storage.local` no puede meterse en el
           // camino de lo que el comprador esta esperando.
-          sendResponse({ tipo: 'veredicto', verdict, features, detalles, entradasModelo });
+          sendResponse({
+            tipo: 'veredicto',
+            verdict,
+            features,
+            detalles,
+            // Solo Facebook trae las entradas del modelo; en el resto no viaja la clave.
+            ...(entradasModelo !== undefined && { entradasModelo }),
+          });
 
           analitica.consultaResuelta(
             ctx,

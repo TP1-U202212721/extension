@@ -193,7 +193,14 @@ export function ScamShieldBadge({
         abrirSesion?.();
         return;
       }
-      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles, entradasModelo: r.entradasModelo });
+      setEstado({
+        fase: 'listo',
+        verdict: r.verdict,
+        features: r.features,
+        detalles: r.detalles,
+        // Solo Facebook las trae; en el resto la clave no viaja.
+        ...(r.entradasModelo !== undefined && { entradasModelo: r.entradasModelo }),
+      });
       // La advertencia acaba de aparecer: es el denominador de todas las tasas
       // de interaccion, y se emite antes que la expansion que viene con ella.
       interacciones?.advertenciaMostrada(veredictoAnalitico(r.verdict));
@@ -222,7 +229,13 @@ export function ScamShieldBadge({
         setVendedor('fallo');
         return;
       }
-      setEstado({ fase: 'listo', verdict: r.verdict, features: r.features, detalles: r.detalles, entradasModelo: r.entradasModelo });
+      setEstado({
+        fase: 'listo',
+        verdict: r.verdict,
+        features: r.features,
+        detalles: r.detalles,
+        ...(r.entradasModelo !== undefined && { entradasModelo: r.entradasModelo }),
+      });
       setVendedor('revisado');
       interacciones?.advertenciaMostrada(veredictoAnalitico(r.verdict));
     });

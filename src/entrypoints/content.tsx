@@ -254,7 +254,8 @@ export default defineContentScript({
           verdict: bruto.verdict,
           features: bruto.features,
           detalles: bruto.detalles,
-          entradasModelo: bruto.entradasModelo,
+          // Solo Facebook las trae; en el resto la clave no viaja.
+          ...(bruto.entradasModelo !== undefined && { entradasModelo: bruto.entradasModelo }),
         };
         // Almacenar resultado en storage para que el popup pueda mostrarlo.
         await browser.storage.local.set({

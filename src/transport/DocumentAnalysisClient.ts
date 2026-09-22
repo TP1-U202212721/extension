@@ -229,7 +229,9 @@ const modeloDe = (item: Sobre): VeredictoDelModelo | null => {
 
 const entradasModeloDe = (item: Sobre): EntradasModelo | undefined => {
   const mi = item.obj('modelInputs');
-  if (mi.raw === null || mi.raw === undefined) return undefined;
+  // Sin cobertura no hay entradas: el backend solo las manda en Facebook, y
+  // siempre con ella. Asi se distingue "no vino" de "vino todo en cero".
+  if (mi.num('coverage') === null) return undefined;
   return {
     discount: mi.numOr('discount', 0),
     ratingAvg: mi.numOr('ratingAverage', 0),
