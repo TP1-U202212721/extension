@@ -362,9 +362,28 @@ function GrupoSenales({
   );
 }
 
+/**
+ * La antiguedad en anios y meses, que es como la lee una persona. "5743 dias" no
+ * le dice nada a nadie; "15 anios y 8 meses" si.
+ */
+export const antiguedadLegible = (dias: number): string => {
+  if (dias < 0) return 'No se pudo leer';
+  if (dias < 31) return `${String(dias)} ${dias === 1 ? 'día' : 'días'}`;
+
+  const anios = Math.floor(dias / 365);
+  if (anios === 0) {
+    const meses = Math.floor(dias / 30.44);
+    return `${String(meses)} ${meses === 1 ? 'mes' : 'meses'}`;
+  }
+
+  const resto = Math.floor((dias - anios * 365) / 30.44);
+  const enAnios = `${String(anios)} ${anios === 1 ? 'año' : 'años'}`;
+  return resto === 0 ? enAnios : `${enAnios} y ${String(resto)} ${resto === 1 ? 'mes' : 'meses'}`;
+};
+
 /** Inputs del modelo de Facebook Marketplace, según Classification Model Marketplace/README.md. */
 const FACEBOOK_MODEL_INPUTS: readonly { key: keyof EntradasModelo; label: string; fmt: (v: number) => string }[] = [
-  { key: 'sellerSeniorityInDays', label: 'Antigüedad del vendedor', fmt: (v) => `${String(v)} días` },
+  { key: 'sellerSeniorityInDays', label: 'Antigüedad del vendedor', fmt: antiguedadLegible },
   { key: 'ratingAvg', label: 'Calificación promedio', fmt: (v) => (v > 0 ? `${v.toFixed(1)} / 5` : 'Sin calificaciones') },
   { key: 'ratingCount', label: 'Cantidad de calificaciones', fmt: (v) => v > 0 ? String(v) : 'Ninguna' },
   { key: 'shopFollowerCount', label: 'Seguidores', fmt: (v) => v > 0 ? String(v) : 'Sin seguidores' },
