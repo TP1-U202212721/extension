@@ -4,4 +4,4 @@
  * constante. Tenerla en config creaba un ciclo de importacion que rompia la
  * inicializacion del modulo en tiempo de ejecucion.
  */
-export const API_BASE_URL = 'http://localhost:8081/api/v1';
+export const API_BASE_URL = 'http://scamshield-api.ryzeon.me/api/v1';
