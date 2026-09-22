@@ -191,8 +191,9 @@ describe('Facebook: lo que publica el perfil del vendedor', () => {
     `{"data":{"seller":{"id":"100011122233344","short_name":"Juan",` +
     `"name":"Juan P\\u00e9rez"},"commerce_badges_info":{"badges":[{"text":"Calificaci\\u00f3n alta"}]},` +
     `"marketplace_followers":{"count":312},` +
-    `"five_star_ratings_average":4.6,` +
-    `"seller_buyer_combined":{"five_star_total_rating_count_by_role":27},` +
+    `"seller_stats":{"five_star_ratings_average":0,"five_star_total_rating_count_by_role":0},` +
+    `"seller_buyer_combined":{"five_star_ratings_average":4.6,` +
+    `"five_star_total_rating_count_by_role":27},` +
     `"listings":[` +
     `{"__typename":"GroupCommerceProductItem","id":"991100","is_live":true,"is_sold":false},` +
     `{"__typename":"GroupCommerceProductItem","id":"991101","is_live":true,"is_sold":false},` +
@@ -273,8 +274,8 @@ describe('Facebook: tarjetas del listado', () => {
 describe('Facebook: un promedio de cero no es una calificacion', () => {
   it('se omite el promedio cuando vale cero', () => {
     const sinNotas = `{"data":{"seller":{"id":"1","short_name":"Ana"},` +
-      `"five_star_ratings_average":0,` +
-      `"seller_buyer_combined":{"five_star_total_rating_count_by_role":0}}}`;
+      `"seller_buyer_combined":{"five_star_ratings_average":0,` +
+      `"five_star_total_rating_count_by_role":0}}}`;
     const doc = cargar(sinNotas, '', 'https://www.facebook.com/marketplace/profile/1/');
     const vendedor = fb.insumos(doc).vendedor;
 
@@ -338,13 +339,15 @@ describe('Facebook: el perfil que se ve manda sobre el embebido', () => {
   const CABECERA =
     '<div>Joha Lisse</div><div>Se unió a Facebook en 2008</div>' +
     '<div>20+ publicaciones activas · 29 seguidores</div>' +
-    '<div>Calificación alta</div><div>4,8 · 23 calificaciones</div>';
+    '<div>Calificación alta</div>' +
+    '<div>Calificación de 4,5 estrellas o más de al menos 5 compradores</div>' +
+    '<div>4,8 · 23 calificaciones</div>';
 
   /** El estado embebido del mismo perfil: en cero, como llega de verdad. */
   const EMBEBIDO =
     '{"__typename":"User","marketplace_followers":{"count":15}' +
-    ',"five_star_ratings_average":0' +
-    ',"seller_buyer_combined":{"five_star_total_rating_count_by_role":0}' +
+    ',"seller_stats":{"five_star_ratings_average":0' +
+    ',"five_star_total_rating_count_by_role":0}' +
     ',"name":"Joha Lisse"},"commerce_badges_info":{"badges":[]}}';
 
   const visible = (): Document =>
@@ -378,5 +381,37 @@ describe('Facebook: el perfil que se ve manda sobre el embebido', () => {
   it('no toma por promedio un numero suelto de la pagina', () => {
     const doc = cargar('{}', '<div>S/ 4,5</div><div>3,2 kg de peso</div>');
     expect(perfilDesdeElDom(doc)).not.toContain('five_star_ratings_average');
+  });
+
+  /** El cartel dice que hacen falta "4,5 estrellas o mas": es el requisito, no su nota. */
+  it('no confunde con el promedio lo que el cartel de la insignia exige', () => {
+    const cartel = '<div>Calificación de 4,5 estrellas o más de al menos 5 compradores</div>';
+    expect(perfilDesdeElDom(cargar('{}', cartel))).not.toContain('five_star_ratings_average');
+  });
+
+  /** El `<body>` tambien tiene los `<script>`: son 1.9 MB de JSON en una pagina real. */
+  it('lee lo que se ve, no el estado embebido disfrazado de texto', () => {
+    const doc = cargar('{"marketplace_followers":{"count":9999} seguidores', '<div>Hola</div>');
+    expect(perfilDesdeElDom(doc)).toBe('');
+  });
+});
+
+/**
+ * Caso real (perfil 1159857241, 2026-09-22): el vendedor tiene sus calificaciones
+ * en privado, asi que `seller_stats` llega en cero y solo el bloque combinado trae
+ * las 3 calificaciones con promedio 5. Leer cada numero por su cuenta daba
+ * "3 calificaciones" y "sin promedio" en el mismo panel.
+ */
+describe('Facebook: calificaciones privadas', () => {
+  it('lee promedio y cantidad del mismo bloque, y manda el combinado', () => {
+    const privado =
+      '{"data":{"seller":{"id":"1159857241","short_name":"Joha"},' +
+      '"marketplace_ratings_stats_by_role_v2":{"seller_ratings_are_private":true,' +
+      '"seller_stats":{"five_star_ratings_average":0,"five_star_total_rating_count_by_role":0},' +
+      '"seller_buyer_combined":{"five_star_ratings_average":5,' +
+      '"five_star_total_rating_count_by_role":3}}}}';
+    const doc = cargar(privado, '', 'https://www.facebook.com/marketplace/profile/1159857241/');
+
+    expect(fb.insumos(doc).vendedor).toMatchObject({ ratingAverage: 5, ratingCount: 3 });
   });
 });

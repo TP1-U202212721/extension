@@ -158,9 +158,19 @@ export const PATRONES = {
    */
   vendedorId: /"(?:marketplace_listing_)?seller"\s*:\s*\{[^}]{0,300}?"id"\s*:\s*"(\d{10,17})"/,
   seguidores: /"marketplace_followers":\{"count":(\d+)\}/,
+  /**
+   * Las calificaciones viven en DOS bloques y solo uno sirve.
+   *
+   * Cuando el vendedor las tiene en privado, Facebook manda
+   * `"seller_stats":{"five_star_ratings_average":0,...count...:0}` y los datos
+   * de verdad en `"seller_buyer_combined"`. Verificado el 2026-09-22 en un
+   * perfil con 3 calificaciones y promedio 5: `seller_stats` decia 0 y 0.
+   * Por eso se toma el bloque entero, y el combinado manda.
+   */
+  calificacionesCombinadas: /"seller_buyer_combined"\s*:\s*\{[^}]*\}/,
+  calificacionesDelVendedor: /"seller_stats"\s*:\s*\{[^}]*\}/,
   promedio: /"five_star_ratings_average"\s*:\s*([\d.]+)/,
-  cuantasCalificaciones:
-    /"(?:seller_stats|seller_buyer_combined)"\s*:\s*\{[^}]*?"five_star_total_rating_count_by_role"\s*:\s*(\d+)/,
+  cuantasCalificaciones: /"five_star_total_rating_count_by_role"\s*:\s*(\d+)/,
   /** SIN VERIFICAR: el vendedor llega en null sin sesion iniciada. */
   nombre: /"name":"([^"]+)"\},"commerce_badges_info"/,
   nombreCorto: /"short_name":"([^"]+)"/,
@@ -208,6 +218,18 @@ export const seguidores = (texto: string): number | undefined =>
   numero(capturar(texto, PATRONES.seguidores));
 
 /**
+ * El bloque del que se leen promedio y cantidad, siempre el mismo para los dos.
+ *
+ * El combinado manda: cuando el vendedor tiene sus calificaciones en privado,
+ * `seller_stats` llega en cero y contradice al combinado. Leer cada numero por
+ * separado dejaba "3 calificaciones" con "sin promedio".
+ */
+const bloqueDeCalificaciones = (texto: string): string =>
+  PATRONES.calificacionesCombinadas.exec(texto)?.[0] ??
+  PATRONES.calificacionesDelVendedor.exec(texto)?.[0] ??
+  texto;
+
+/**
  * Promedio del vendedor, de 0 a 5.
  *
  * Un 0 NO es una nota psima: Facebook manda 0 cuando el vendedor no tiene
@@ -216,12 +238,12 @@ export const seguidores = (texto: string): number | undefined =>
  * el veredicto a riesgo alto sin que nadie lo hubiera calificado mal.
  */
 export const promedio = (texto: string): number | undefined => {
-  const n = numero(capturar(texto, PATRONES.promedio));
+  const n = numero(capturar(bloqueDeCalificaciones(texto), PATRONES.promedio));
   return n !== undefined && n > 0 && n <= 5 ? n : undefined;
 };
 
 export const cuantasCalificaciones = (texto: string): number | undefined =>
-  numero(capturar(texto, PATRONES.cuantasCalificaciones));
+  numero(capturar(bloqueDeCalificaciones(texto), PATRONES.cuantasCalificaciones));
 
 export const nombreDelVendedor = (texto: string): string => {
   const crudo = capturar(texto, PATRONES.nombre) ?? capturar(texto, PATRONES.nombreCorto);
@@ -457,9 +479,15 @@ export const fotosDesdeElDom = (doc: Document, publicacionId: string): string =>
 const SEGUIDORES = /([\d.,]+)\s*\+?\s*(?:seguidores|followers)/i;
 const PUBLICACIONES = /([\d.,]+)\s*\+?\s*(?:publicaciones activas|active listings)/i;
 const INSIGNIA = /(Calificaci(?:ó|o)n alta|Highly rated|Muy valorado)/i;
-/** "4,8 · 23 calificaciones". Se exige el decimal y que la palabra este cerca:
- *  un "5" suelto de cualquier parte de la pagina no es un promedio. */
-const PROMEDIO_DOM = /\b([0-5][.,]\d)\b.{0,40}?(?:calificaci|valoraci|rating|review)/i;
+/**
+ * El promedio, y solo en la forma en que Facebook lo publica: "4,8 · 23 calificaciones".
+ *
+ * Se exige el separador y el recuento detras porque el cartel de la insignia dice
+ * "Calificacion de 4,5 estrellas o mas de al menos 5 compradores", y ese 4,5 es el
+ * requisito del distintivo, NO lo que este vendedor saco.
+ */
+const PROMEDIO_DOM =
+  /\b([0-5][.,]\d)\s*[·•|-]\s*[\d.,]+\s*(?:calificaci|valoraci|rating|review)/i;
 const CUANTAS_DOM = /([\d.,]+)\s*(?:calificaciones|valoraciones|ratings|reviews)/i;
 
 const entero = (crudo: string | undefined): number | undefined => {
@@ -468,15 +496,26 @@ const entero = (crudo: string | undefined): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+/** Lo que no es texto para leer aunque viva en el `<body>`. */
+const NO_SE_VE = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE']);
+
 /**
  * El texto que se ve, con un espacio entre cada trozo.
  *
- * `textContent` pega los bloques sin separarlos, y "...en 2008" seguido de
- * "20+ publicaciones" se leia como el numero 200820.
+ * Dos trampas, las dos comprobadas en una pagina real de Facebook:
+ * - `textContent` pega los bloques sin separarlos, y "...en 2008" seguido de
+ *   "20+ publicaciones" se leia como el numero 200820.
+ * - El `<body>` tambien tiene los `<script>`, que aqui son 1.9 MB de JSON. Sin
+ *   descartarlos esto no leia lo que se ve, sino el estado embebido otra vez.
  */
 const textoVisible = (doc: Document): string => {
   const partes: string[] = [];
-  const recorrido = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  const recorrido = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: (nodo) =>
+      NO_SE_VE.has(nodo.parentElement?.tagName ?? '')
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
+  });
   for (let nodo = recorrido.nextNode(); nodo !== null; nodo = recorrido.nextNode()) {
     const trozo = (nodo.textContent ?? '').trim();
     if (trozo !== '') partes.push(trozo);
@@ -502,10 +541,12 @@ export const perfilDesdeElDom = (doc: Document): string => {
     partes.push(`"commerce_badges_info":{"badges":[{"text":"${enJson(insignia)}"}]}`);
   }
   if (cuantas !== undefined) {
+    // Los dos numeros van en el mismo bloque, como los manda Facebook: separarlos
+    // es lo que dejaba "3 calificaciones" sin promedio.
+    const nota = promedio === undefined ? '' : `"five_star_ratings_average":${promedio},`;
     partes.push(
-      `"seller_buyer_combined":{"five_star_total_rating_count_by_role":${String(cuantas)}}`,
+      `"seller_buyer_combined":{${nota}"five_star_total_rating_count_by_role":${String(cuantas)}}`,
     );
-    if (promedio !== undefined) partes.push(`"five_star_ratings_average":${promedio}`);
   }
   if (alta !== undefined) partes.push(`"alta":"${enJson(alta)}"`);
 
