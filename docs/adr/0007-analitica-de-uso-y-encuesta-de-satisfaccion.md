@@ -161,14 +161,33 @@ tesis quiere responder, y hay que decir con que precision se miden:
   cancela el evento y no se toca el flujo de compra del marketplace.
 
 - **Hizo caso (6) es una aproximacion.** Se emite al dejar la ficha tras una advertencia
-  de riesgo alto o moderado sin haber tocado ningun control de compra. Irse de una pagina
+  sin haber tocado ningun control de compra. Irse de una pagina
   no prueba haber hecho caso: se pudo ir por cualquier motivo. **La cifra hay que citarla
   como "abandono sin intencion de compra observada"**, no como acatamiento. Lo que si es
   solido es lo contrario: quien pulso comprar no hizo caso, y eso lo cubre el 7.
 
 Los dos son excluyentes y se emiten una sola vez por advertencia. El evento de abandono
-viaja en `pagehide`/`visibilitychange`, y puede perderse si el navegador cierra la pestana
-antes de entregar el mensaje: **la tasa de 6 es una cota inferior**.
+viaja en `pagehide`, y puede perderse si el navegador cierra la pestana antes de entregar
+el mensaje: **la tasa de 6 es una cota inferior**.
+
+> **Revisado el 2026-10-20.** Tres cambios, por un defecto de medicion detectado al
+> preparar el paper:
+>
+> 1. **Ya no se emite con `visibilitychange`.** Ocultar la pestana contaba como abandono,
+>    y como el desenlace se emite una sola vez, un clic de compra posterior se descartaba.
+>    En la validacion del 19-09 al 05-10 hubo 44 eventos 6 y **ningun** evento 7. Las
+>    cifras de 6 de ese periodo estan infladas por cambios de pestana.
+> 2. **El 6 se emite tras los cuatro veredictos**, no solo tras alto y moderado. Tras
+>    riesgo bajo o evidencia insuficiente no mide acatamiento: es la linea base contra la
+>    que se compara el abandono tras una advertencia de riesgo.
+> 3. **En una SPA, detectar una ficha nueva cierra el desenlace de la anterior.** Sin
+>    `pagehide`, esas advertencias quedaban sin desenlace.
+>
+> 4. **Temu reconoce el clic de compra por texto.** Sus clases estan ofuscadas y no hay
+>    selector estable (`COMPRA = []`), asi que en Temu el 7 no podia emitirse nunca. El
+>    adaptador implementa `esControlDeCompra`, con el mismo criterio que ancla el badge:
+>    `[role=button]` con "Add to cart"/"Agregar al carrito", fuera de las tarjetas de
+>    recomendacion. Verificado contra la fixture de la ficha real del 2026-09-19.
 
 ---
 

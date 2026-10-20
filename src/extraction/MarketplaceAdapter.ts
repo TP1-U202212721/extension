@@ -118,4 +118,11 @@ export interface MarketplaceAdapter {
    * Vacio es una respuesta valida: sin selectores, esa interaccion no se emite.
    */
   selectoresDeCompra(): readonly string[];
+
+  /**
+   * Para las plataformas cuyo control de compra no tiene selector CSS estable
+   * (Temu ofusca sus clases): reconoce si el elemento pulsado esta dentro de uno.
+   * Se consulta ademas de `selectoresDeCompra`. Mismas reglas: solo se lee.
+   */
+  esControlDeCompra?(objetivo: Element): boolean;
 }

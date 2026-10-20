@@ -42,7 +42,15 @@ export class EmisorDeContenido {
     this.#mandar({ clase: 'sesion-iniciada' });
   }
 
+  /**
+   * En una SPA (Facebook) se pasa de una ficha a otra sin `pagehide`: detectar
+   * una ficha nueva es la unica senal de que la anterior se dejo. Se cierra su
+   * desenlace antes de olvidarla; si no, esas advertencias quedaban sin ninguno.
+   */
   fichaDetectada(): void {
+    this.abandonoTrasLaAdvertencia();
+    this.#veredictoEnPantalla = null;
+    this.#mostradaEn = null;
     this.#mandar({ clase: 'ficha-detectada' });
   }
 
@@ -98,13 +106,18 @@ export class EmisorDeContenido {
    * "abandono sin intencion de compra observada", y asi queda anotado en
    * docs/adr/0007.
    *
-   * Solo se emite tras una advertencia de riesgo alto o moderado: irse de una
-   * ficha que salio en riesgo bajo no dice nada sobre la advertencia.
+   * Se emite tras CUALQUIER veredicto, incluidos riesgo bajo y evidencia
+   * insuficiente. Solos no dicen nada sobre la advertencia, pero son la linea
+   * base: sin ellos no se sabe si el abandono tras riesgo alto supera al que
+   * ocurre de todos modos (docs/adr/0007, seccion 4).
+   *
+   * Solo se llama al salir de verdad de la ficha (`pagehide` o ficha nueva en
+   * una SPA), nunca al ocultar la pestana: cambiar de pestana no es abandonar,
+   * y marcarlo como desenlace impedia registrar un clic de compra posterior.
    */
   abandonoTrasLaAdvertencia(): void {
     if (this.#desenlaceEmitido || this.#continuo) return;
-    const v = this.#veredictoEnPantalla;
-    if (v !== 1 && v !== 2) return;
+    if (this.#veredictoEnPantalla === null) return;
     this.#desenlaceEmitido = true;
     this.#interaccion(INTERACCION.hizoCaso);
   }
