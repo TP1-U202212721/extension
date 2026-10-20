@@ -85,6 +85,21 @@ describe('Temu: ficha real', () => {
     expect(ancla !== null && temu.insercionBadge(ancla)).toBe('antes');
   });
 
+  it('reconoce el clic en el boton principal de compra, aunque caiga en el texto interior', () => {
+    const doc = cargar(html, URL_FICHA);
+    const texto = doc.querySelector('[role="button"]:not([data-type]) span');
+    expect(texto).not.toBeNull();
+    expect(texto !== null && temu.esControlDeCompra(texto)).toBe(true);
+  });
+
+  it('no toma por compra el "Add to cart" de una recomendacion ni el titulo', () => {
+    const doc = cargar(html, URL_FICHA);
+    const recomendacion = doc.querySelector('[data-type="goodsCart"]');
+    const titulo = doc.querySelector('h1');
+    expect(recomendacion !== null && temu.esControlDeCompra(recomendacion)).toBe(false);
+    expect(titulo !== null && temu.esControlDeCompra(titulo)).toBe(false);
+  });
+
   it('lee la tienda: puntuacion, valoraciones y ventas de la tienda', () => {
     const { vendedor } = temu.insumos(cargar(html, URL_FICHA));
     expect(vendedor).toEqual({

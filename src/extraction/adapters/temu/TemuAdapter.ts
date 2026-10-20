@@ -43,10 +43,14 @@ const BOTON = '[role="button"]:not([data-type="goodsCart"])';
 const TEXTO_COMPRA = /(add to cart|agregar al carrito|añadir al carrito|comprar ahora|buy now)/i;
 
 /**
- * Controles de compra para avisar al hacer clic. Temu no da un selector CSS
- * estable para su boton, asi que no se intercepta: el badge ya queda al lado.
+ * Sin selectores CSS de compra: no hay ninguno estable. El clic se reconoce con
+ * `esControlDeCompra`, por el mismo texto con que se ancla el badge.
  */
 const COMPRA: readonly string[] = [];
+
+/** Boton principal de compra de la ficha, no el de una tarjeta de recomendacion. */
+const esBotonDeCompra = (boton: Element): boolean =>
+  boton.closest(ENLACE_FICHA) === null && TEXTO_COMPRA.test(boton.textContent);
 
 /** Goods ids distintos enlazados dentro de un elemento. */
 const idsDentro = (el: Element): Set<string> => {
@@ -94,8 +98,7 @@ export class TemuAdapter implements MarketplaceAdapter {
 
   anclaBadge(doc: Document): Element | null {
     for (const boton of doc.querySelectorAll(BOTON)) {
-      if (boton.closest(ENLACE_FICHA) !== null) continue;
-      if (TEXTO_COMPRA.test(boton.textContent)) return boton;
+      if (esBotonDeCompra(boton)) return boton;
     }
     return null;
   }
@@ -129,5 +132,10 @@ export class TemuAdapter implements MarketplaceAdapter {
 
   selectoresDeCompra(): readonly string[] {
     return COMPRA;
+  }
+
+  esControlDeCompra(objetivo: Element): boolean {
+    const boton = objetivo.closest(BOTON);
+    return boton !== null && esBotonDeCompra(boton);
   }
 }

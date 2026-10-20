@@ -293,15 +293,19 @@ export default defineContentScript({
      * simula y no toca el flujo de compra del marketplace.
      */
     const selectoresDeCompra = adapter.selectoresDeCompra();
-    if (selectoresDeCompra.length > 0) {
+    const esCompra = (objetivo: Element): boolean => {
+      if (adapter.esControlDeCompra?.(objetivo) === true) return true;
+      if (selectoresDeCompra.length === 0) return false;
+      try {
+        return objetivo.closest(selectoresDeCompra.join(',')) !== null;
+      } catch {
+        return false; // selector invalido: no se emite nada
+      }
+    };
+    if (selectoresDeCompra.length > 0 || adapter.esControlDeCompra !== undefined) {
       const alClic = (e: Event): void => {
         const objetivo = e.target;
-        if (!(objetivo instanceof Element)) return;
-        try {
-          if (objetivo.closest(selectoresDeCompra.join(',')) === null) return;
-        } catch {
-          return; // selector invalido: no se emite nada
-        }
+        if (!(objetivo instanceof Element) || !esCompra(objetivo)) return;
         emisor.continuoPeseALaAdvertencia();
       };
       document.addEventListener('click', alClic, { capture: true, passive: true });
@@ -313,13 +317,13 @@ export default defineContentScript({
     const alSalir = (): void => {
       emisor.abandonoTrasLaAdvertencia();
     };
-    // Los dos: `pagehide` cubre la navegacion y `visibilitychange` el cierre de
-    // pestana, donde `pagehide` a veces llega tarde para mandar un mensaje. El
-    // emisor se encarga de que solo se emita una vez.
+    // Solo `pagehide`, que cubre la navegacion y el cierre de pestana. Antes
+    // tambien `visibilitychange`, pero ocultar la pestana no es dejar la ficha:
+    // contaba como abandono un simple cambio de pestana y, como el desenlace se
+    // emite una sola vez, descartaba el clic de compra que viniera despues. A
+    // cambio, un cierre en el que `pagehide` llegue tarde pierde el evento; la
+    // tasa de abandono sigue siendo una cota inferior (docs/adr/0007).
     window.addEventListener('pagehide', alSalir);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') alSalir();
-    });
     ctx.onInvalidated(() => {
       window.removeEventListener('pagehide', alSalir);
     });
